@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0a0e1a"/>
+  <circle cx="256" cy="256" r="150" fill="#ffc53d" fill-opacity=".10"/>
+  <ellipse cx="256" cy="256" rx="185" ry="68" fill="none" stroke="#4fd1ff" stroke-width="16" transform="rotate(-30 256 256)"/>
+  <ellipse cx="256" cy="256" rx="185" ry="68" fill="none" stroke="#ffc53d" stroke-width="16" transform="rotate(30 256 256)"/>
+  <text x="256" y="300" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="132" fill="#e8ecf7">SZ</text>
+</svg>
