@@ -783,9 +783,12 @@ async function renderProfile() {
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {}));
   // When a new version of the app takes over, reload once so the new code runs straight away
+  // (only for updates — not the very first install — and never mid-quiz or while typing)
   let reloaded = false;
+  const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloaded || quiz) return; // never interrupt a quiz in progress
+    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || "");
+    if (reloaded || !hadController || quiz || typing) return;
     reloaded = true;
     location.reload();
   });
