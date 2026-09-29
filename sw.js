@@ -1,14 +1,13 @@
-// Offline support.
-// App files: served from cache, refreshed in the background.
-// Questions (data/): always fetched fresh from the network, cache used only when offline.
-// Bump VERSION whenever app.js / styles.css / index.html change.
-const VERSION = "v1";
+// Offline support for the app's own files (so it opens instantly).
+// Database requests (Supabase) are never cached — marks and questions are always live.
+// Bump VERSION whenever app code (js/, *.css, index.html) changes so phones pick it up.
+const VERSION = "v2";
 const SHELL = `shell-${VERSION}`;
-const DATA = "data";
 const SHELL_FILES = [
-  "./", "index.html", "styles.css", "app.js", "manifest.webmanifest",
-  "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"
+  "./", "index.html", "styles.css", "app.css", "js/app.js", "js/ui.js", "js/admin.js", "js/config.js",
+  "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"
 ];
+const CACHEABLE_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com", "cdn.jsdelivr.net"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
@@ -17,38 +16,23 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== SHELL && k !== DATA).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== SHELL).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener("fetch", (e) => {
-  const url = new URL(e.request.url);
   if (e.request.method !== "GET") return;
+  const url = new URL(e.request.url);
+  const ours = url.origin === location.origin;
+  if (!ours && !CACHEABLE_HOSTS.includes(url.host)) return; // Supabase etc. → straight to network
 
-  // Questions: network first, fall back to cache when offline
-  if (url.origin === location.origin && url.pathname.includes("/data/")) {
-    e.respondWith(
-      fetch(e.request)
-        .then((res) => {
-          const copy = res.clone();
-          if (res.ok) caches.open(DATA).then((c) => c.put(e.request, copy));
-          return res;
-        })
-        .catch(() => caches.match(e.request, { ignoreSearch: true }))
-    );
-    return;
-  }
-
-  // Everything else (app files, fonts): cache first, update in background
+  // Serve from cache, refresh the cache in the background
   e.respondWith(
-    caches.match(e.request, { ignoreSearch: true }).then((hit) => {
+    caches.match(e.request, { ignoreSearch: ours }).then((hit) => {
       const net = fetch(e.request)
         .then((res) => {
-          if (res.ok && (url.origin === location.origin || url.host.includes("fonts."))) {
-            const copy = res.clone();
-            caches.open(SHELL).then((c) => c.put(e.request, copy));
-          }
+          if (res.ok) { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(e.request, copy)); }
           return res;
         })
         .catch(() => hit);
