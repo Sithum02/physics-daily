@@ -781,5 +781,12 @@ async function renderProfile() {
 // Service worker (offline app shell)
 // ==========================================================
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {}));
+  // When a new version of the app takes over, reload once so the new code runs straight away
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloaded || quiz) return; // never interrupt a quiz in progress
+    reloaded = true;
+    location.reload();
+  });
 }

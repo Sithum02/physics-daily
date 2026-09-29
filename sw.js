@@ -1,7 +1,7 @@
 // Offline support for the app's own files (so it opens instantly).
 // Database requests (Supabase) are never cached — marks and questions are always live.
 // Bump VERSION whenever app code (js/, *.css, index.html) changes so phones pick it up.
-const VERSION = "v4";
+const VERSION = "v5";
 const SHELL = `shell-${VERSION}`;
 const SHELL_FILES = [
   "./", "index.html", "styles.css", "app.css", "js/app.js", "js/ui.js", "js/admin.js", "js/config.js",
@@ -27,18 +27,12 @@ self.addEventListener("fetch", (e) => {
   const ours = url.origin === location.origin;
   if (!ours && !CACHEABLE_HOSTS.includes(url.host)) return; // Supabase etc. → straight to network
 
-  // Serve from cache, refresh the cache in the background
-  e.respondWith(
-    caches.match(e.request, { ignoreSearch: ours }).then((hit) => {
-      const net = fetch(e.request)
-        .then((res) => {
-          if (res.ok) { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(e.request, copy)); }
-          return res;
-        })
-        .catch(() => hit);
-      return hit || net;
-    })
-  );
+  // App files: always try the network first so a new version shows up immediately;
+  // the cached copy is only used when offline. Fonts / libraries: cache first.
+  const save = (res) => { if (res.ok) { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(e.request, copy)); } return res; };
+  e.respondWith(ours
+    ? fetch(e.request, { cache: "no-cache" }).then(save).catch(() => caches.match(e.request, { ignoreSearch: true }))
+    : caches.match(e.request).then((hit) => hit || fetch(e.request).then(save)));
 });
 
 // ---------- Push reminders ----------
