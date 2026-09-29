@@ -84,7 +84,9 @@ async function api(path, { method = "GET", body, prefer } = {}) {
   const res = await fetch(`${URL_}/rest/v1/${path}`, {
     method,
     headers: {
-      apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json",
+      apikey: KEY, "Content-Type": "application/json",
+      // Old-style keys are JWTs and also go in Authorization; new sb_secret_ keys only go in apikey
+      ...(KEY.startsWith("eyJ") ? { Authorization: `Bearer ${KEY}` } : {}),
       ...(prefer ? { Prefer: prefer } : {})
     },
     body: body ? JSON.stringify(body) : undefined

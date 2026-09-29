@@ -6,3 +6,6 @@ _test.html
 # Private: question files contain the answers, and .env has the secret key
 content/
 tools/.env
+
+# PDFs for sharing (kept out of the public repo)
+guides/

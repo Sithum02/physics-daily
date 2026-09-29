@@ -20,11 +20,44 @@ export async function renderAdmin(c) {
   if (a === "s" && b) return student(b);
   if (a === "d" && b) return daySheet(b);
   if (a === "days") return days();
+  if (a === "notify") return notify();
   return students();
 }
 
 const seg = (on) => `<div class="seg"><a href="#admin/students" class="${on === "students" ? "on" : ""}">Students</a>
-  <a href="#admin/days" class="${on === "days" ? "on" : ""}">Daily sheets</a></div>`;
+  <a href="#admin/days" class="${on === "days" ? "on" : ""}">Daily sheets</a>
+  <a href="#admin/notify" class="${on === "notify" ? "on" : ""}">Notify</a></div>`;
+
+// ---------- Send a notification ----------
+async function notify() {
+  ctx.shell("admin", `<h1 class="page-title">Admin</h1>${seg("notify")}<div class="spinner"></div>`);
+  let count = "—";
+  try { count = await rpc("dq_admin_push_count"); } catch { /* push not set up yet */ }
+  ctx.shell("admin", `
+    <h1 class="page-title">Admin</h1>${seg("notify")}
+    <div class="tiles"><div class="tile big"><small>Students with reminders on</small><b>${count}</b>
+      <em>Automatic: 6:00 am when the quiz opens · 8:00 pm to anyone who hasn't done it</em></div></div>
+    <form class="card form" id="nf">
+      <h3>Send a message now</h3>
+      <label>Title<input name="t" maxlength="80" required placeholder="e.g. New paper class this Saturday!"></label>
+      <label>Message<input name="b" maxlength="200" required placeholder="e.g. 2027 Paper Class starts 5 Oct. WhatsApp 072 918 4999"></label>
+      <p class="err" id="ne"></p>
+      <button class="btn btn-primary btn-block">Send to everyone</button>
+    </form>`);
+  $("#nf").onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    if (!(await confirmBox("Send this notification?", `It goes to every student with reminders on (${count}).`, "Send"))) return;
+    const btn = f.querySelector("button"); btn.disabled = true;
+    const { data, error } = await ctx.sb.functions.invoke("daily-push", {
+      body: { kind: "custom", title: f.t.value.trim(), body: f.b.value.trim() }
+    });
+    btn.disabled = false;
+    if (error) { $("#ne").textContent = "Couldn't send: " + error.message; return; }
+    toast(`Sent to ${data.sent} phone${data.sent === 1 ? "" : "s"}.`);
+    f.reset();
+  };
+}
 
 function csv(name, head, rows) {
   const text = [head, ...rows].map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");

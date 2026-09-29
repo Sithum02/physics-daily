@@ -7,7 +7,7 @@
 // All marking, timing and ranking happen in the database (supabase/daily.sql).
 // ==========================================================
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-import { SUPABASE_URL, SUPABASE_ANON_KEY, WHATSAPP_NUMBER, WHATSAPP_DISPLAY } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, WHATSAPP_NUMBER, WHATSAPP_DISPLAY, VAPID_PUBLIC_KEY } from "./config.js";
 import {
   $, $$, esc, fmt, fmtTime, niceDay, addDays, pctClass, toast, sheet, confirmBox,
   lineChart, barList, LETTERS, SERIES, DISTRICTS, normalizeNic, normalizePhone, maskNic
@@ -25,6 +25,80 @@ let pendingError = "";   // message to show on the next form
 
 const PUBLIC = ["login", "register", "newpass"];
 const serverNow = () => Date.now() + clockOffset;
+
+// ==========================================================
+// Push reminders
+// iPhone: only works once the app is added to the Home Screen (iOS 16.4+).
+// ==========================================================
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isInstalled = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const swReady = () => Promise.race([navigator.serviceWorker.ready, new Promise((_, r) => setTimeout(() => r(new Error("Service worker not ready")), 8000))]);
+let pushSynced = false;
+
+async function pushState() {
+  if (!pushSupported()) return isIOS && !isInstalled() ? "install" : "unsupported";
+  if (Notification.permission === "denied") return "denied";
+  try {
+    const sub = await (await swReady()).pushManager.getSubscription();
+    if (sub && !pushSynced) { pushSynced = true; sb.rpc("dq_push_subscribe", { p_sub: sub.toJSON() }); } // re-link to this account
+    return sub ? "on" : "off";
+  } catch { return "unsupported"; }
+}
+
+function vapidKey() {
+  const s = VAPID_PUBLIC_KEY.replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(s + "=".repeat((4 - (s.length % 4)) % 4));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+async function enablePush() {
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") { toast("Notifications are blocked. Allow them in your phone's settings."); return false; }
+  try {
+    const reg = await swReady();
+    const sub = (await reg.pushManager.getSubscription()) ||
+      (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey() }));
+    const { error } = await sb.rpc("dq_push_subscribe", { p_sub: sub.toJSON() });
+    if (error) throw error;
+    toast("Reminders on 🔔");
+    return true;
+  } catch (e) {
+    toast("Couldn't turn on reminders: " + e.message);
+    return false;
+  }
+}
+
+async function disablePush() {
+  const sub = await (await swReady()).pushManager.getSubscription();
+  if (sub) { await sb.rpc("dq_push_unsubscribe", { p_endpoint: sub.endpoint }); await sub.unsubscribe(); }
+  toast("Reminders off.");
+}
+
+const PUSH_TEXT = {
+  on: "On. You'll get a reminder at 6:00 am when the quiz opens, and at 8:00 pm if you haven't done it yet.",
+  off: "Get a reminder at 6:00 am when each day's quiz opens, and at 8:00 pm if you haven't done it yet.",
+  install: "On iPhone, first add the app to your Home Screen: tap Share, then “Add to Home Screen”. Open it from there and turn reminders on.",
+  denied: "Notifications are blocked for this app. Allow them in your phone's Settings, then come back here.",
+  unsupported: "This browser can't show notifications. On Android use Chrome; on iPhone add the app to your Home Screen."
+};
+
+// One-time prompt on the home screen
+async function pushPromptCard() {
+  let dismissed = false;
+  try { dismissed = localStorage.getItem("pushAsk") === "no"; } catch { /* ignore */ }
+  if (dismissed) return "";
+  const st = await pushState();
+  if (st !== "off" && st !== "install") return "";
+  return `<div class="tip" id="pushTip"><span>🔔</span><span><b>Never miss a day.</b> ${st === "install"
+    ? PUSH_TEXT.install
+    : `Get a reminder when each quiz opens.<br><br><button class="btn btn-primary btn-sm" id="pushOn">Turn on reminders</button>`}</span>
+    <button class="close" id="pushNo" aria-label="Close">×</button></div>`;
+}
+function bindPushPrompt() {
+  $("#pushOn")?.addEventListener("click", async () => { if (await enablePush()) $("#pushTip")?.remove(); });
+  $("#pushNo")?.addEventListener("click", () => { try { localStorage.setItem("pushAsk", "no"); } catch { /* ignore */ } $("#pushTip")?.remove(); });
+}
 
 // ==========================================================
 // Boot + router
@@ -72,7 +146,7 @@ async function route() {
       case "review": return await renderReview(a);
       case "ranks": return await renderRanks(a || "today");
       case "progress": return await renderProgress();
-      case "profile": return renderProfile();
+      case "profile": return await renderProfile();
       case "admin": {
         if (!me.is_admin) return go("home");
         const mod = await import("./admin.js");
@@ -323,9 +397,11 @@ async function renderHome() {
   }
 
   const top = board.rows.slice(0, 3);
+  const pushCard = await pushPromptCard();
   shell("home", `
     ${brandHeader(`<span class="hello">Hi, ${esc(me.full_name.split(" ")[0])} 👋</span>`)}
     ${card}
+    ${pushCard}
     <div class="stats">
       <div class="stat fire"><b>🔥 ${stats.streak}</b><small>Day streak</small></div>
       <div class="stat"><b>${stats.correct}<small class="muted">/${stats.answered}</small></b><small>Correct / answered</small></div>
@@ -346,6 +422,7 @@ async function renderHome() {
     <p class="footer">By Sithum De Zoysa · <a href="https://wa.me/${WHATSAPP_NUMBER}" target="_blank" rel="noopener">WhatsApp</a></p>`);
 
   startCountdowns();
+  bindPushPrompt();
   $("#startBtn")?.addEventListener("click", async () => {
     const ok = await confirmBox("Start today's quiz?",
       `You'll have <b>${t.count * 2} minutes</b> for ${t.count} questions. The timer keeps running even if you close the app, and you get <b>one attempt</b>.`, "Start now");
@@ -648,7 +725,8 @@ async function renderProgress() {
 // ==========================================================
 // Profile
 // ==========================================================
-function renderProfile() {
+async function renderProfile() {
+  const push = await pushState();
   shell("profile", `
     <h1 class="page-title">Profile</h1>
     <div class="card profile-card">
@@ -665,10 +743,21 @@ function renderProfile() {
       </dl>
       <button class="btn btn-ghost btn-block" id="edit" style="margin-top:14px">Edit details</button>
     </div>
+    <div class="card">
+      <h3 class="card-title">🔔 Daily reminders ${push === "on" ? '<span class="pill good">On</span>' : ""}</h3>
+      <p class="muted" style="font-size:14px">${PUSH_TEXT[push]}</p>
+      ${push === "on" ? `<button class="btn btn-ghost btn-block" id="pushToggle" style="margin-top:12px">Turn off</button>`
+        : push === "off" ? `<button class="btn btn-primary btn-block" id="pushToggle" style="margin-top:12px">Turn on reminders</button>` : ""}
+    </div>
     <a class="btn btn-wa btn-block" href="https://wa.me/${WHATSAPP_NUMBER}" target="_blank" rel="noopener">Contact Sithum on WhatsApp</a>
     <button class="btn btn-ghost btn-block" id="out" style="margin-top:10px">Log out</button>
     <p class="footer">Your NIC and phone are private. Only your name and school appear on leaderboards.</p>`);
   $("#out").onclick = () => sb.auth.signOut();
+  $("#pushToggle")?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    if (push === "on") await disablePush(); else await enablePush();
+    renderProfile();
+  });
   $("#edit").onclick = () => {
     const { el, close } = sheet(`<form class="form" id="pf"><h3>Edit details</h3>${profileFields(me, false)}
       <p class="hint">To change your NIC, contact the admin.</p><p class="err" id="perr"></p>
