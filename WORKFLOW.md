@@ -88,5 +88,24 @@ Live about 1 minute later at https://sithum02.github.io/physics-daily/
 
 ### 5. Database changes
 
-Edit `supabase/daily.sql` (keep it re-runnable: `create or replace`, `if not exists`) and ask Sithum
-to paste the whole file into Supabase → SQL Editor → Run.
+Edit `supabase/daily.sql` or `supabase/push.sql` (keep them re-runnable: `create or replace`,
+`if not exists`) and run them directly — no copy-pasting needed:
+
+```bash
+node tools/supa.mjs sql supabase/daily.sql
+```
+
+### 6. Push reminders
+
+- Sent by the Edge Function `supabase/functions/daily-push` (Deno, web-push, VAPID keys in `tools/.env`
+  and Supabase secrets). Schedule (pg_cron): 6:00 am LK to everyone if there's a quiz; 8:00 pm LK only to
+  students who haven't submitted. Admin can send custom messages from the app (Admin → Notify).
+- Redeploy after editing the function or schedule: `node tools/supa.mjs push-setup`
+- Test: `node tools/supa.mjs test-push "Title" "Body"` (or `morning` / `evening`).
+
+### 7. Keys (tools/.env)
+
+`SUPABASE_SERVICE_KEY` is a new-style `sb_secret_` key (goes in the `apikey` header only).
+`SUPABASE_ACCESS_TOKEN` (`sbp_…`) is Sithum's personal token for the Management API and CLI.
+The app and website use the publishable key `sb_publishable_…`. Legacy JWT keys are being disabled.
+Never print these values; never ask Sithum to paste secrets into chat.
