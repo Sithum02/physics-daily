@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" font-family="Arial, sans-serif" font-size="14">
+  <rect width="480" height="300" fill="#ffffff"/>
+  <!-- grid -->
+  <g stroke="#e3e7f0" stroke-width="1">
+    <line x1="60" y1="183.3" x2="440" y2="183.3"/><line x1="60" y1="116.7" x2="440" y2="116.7"/><line x1="60" y1="50" x2="440" y2="50"/>
+    <line x1="150" y1="40" x2="150" y2="250"/><line x1="240" y1="40" x2="240" y2="250"/><line x1="330" y1="40" x2="330" y2="250"/><line x1="420" y1="40" x2="420" y2="250"/>
+  </g>
+  <!-- axes -->
+  <g stroke="#141b30" stroke-width="2" fill="none">
+    <line x1="60" y1="250" x2="450" y2="250"/><line x1="60" y1="250" x2="60" y2="30"/>
+  </g>
+  <polygon points="450,245 460,250 450,255" fill="#141b30"/>
+  <polygon points="55,30 60,20 65,30" fill="#141b30"/>
+  <!-- labels -->
+  <g fill="#141b30" text-anchor="middle">
+    <text x="150" y="270">2</text><text x="240" y="270">4</text><text x="330" y="270">6</text><text x="420" y="270">8</text>
+    <text x="455" y="275">t / s</text>
+  </g>
+  <g fill="#141b30" text-anchor="end">
+    <text x="52" y="255">0</text><text x="52" y="188">4</text><text x="52" y="121">8</text><text x="52" y="55">12</text>
+  </g>
+  <text x="70" y="22" fill="#141b30">s / m</text>
+  <!-- graph -->
+  <polyline points="60,250 240,116.7 330,116.7 420,250" fill="none" stroke="#c4560a" stroke-width="3.5" stroke-linejoin="round"/>
+  <g fill="#c4560a"><circle cx="240" cy="116.7" r="4.5"/><circle cx="330" cy="116.7" r="4.5"/><circle cx="420" cy="250" r="4.5"/></g>
+  <g fill="#5b6480" font-size="13" text-anchor="middle"><text x="150" y="170">P</text><text x="285" y="108">Q</text><text x="390" y="170">R</text></g>
+</svg>
