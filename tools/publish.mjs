@@ -35,6 +35,7 @@ for (const file of readdirSync(daysDir).filter((f) => f.endsWith(".json")).sort(
   if (day.date !== date) errors.push(`${where}: "date" must be "${date}"`);
   if (!Array.isArray(day.questions) || !day.questions.length) { errors.push(`${where}: no questions`); continue; }
 
+  const missing = { si: 0, ta: 0 };
   day.questions.forEach((q, i) => {
     const at = `${where} Q${i + 1}`;
     const id = `${date}-${String(i + 1).padStart(2, "0")}`;
@@ -51,7 +52,18 @@ for (const file of readdirSync(daysDir).filter((f) => f.endsWith(".json")).sort(
     if (!q.explain) warnings.push(`${at}: no method/explanation`);
     if (q.image && !existsSync(join(root, q.image))) errors.push(`${at}: image not found: ${q.image}`);
     if (/[\^_]\{[^}]*$/.test(String(q.q) + " " + String(q.explain || ""))) errors.push(`${at}: unclosed ^{ or _{`);
+    // Optional translations: "si" (Sinhala) and "ta" (Tamil), each { q, options[5], explain }
+    for (const lang of ["si", "ta"]) {
+      const t = q[lang];
+      if (!t) { missing[lang]++; continue; }
+      if (!String(t.q || "").trim()) errors.push(`${at} [${lang}]: empty question`);
+      if (!Array.isArray(t.options) || t.options.length !== 5 || t.options.some((o) => !String(o).trim())) {
+        errors.push(`${at} [${lang}]: needs exactly 5 non-empty options (same order as English)`);
+      }
+      if (/[\^_]\{[^}]*$/.test(String(t.q) + " " + String(t.explain || ""))) errors.push(`${at} [${lang}]: unclosed ^{ or _{`);
+    }
   });
+  if (missing.si || missing.ta) warnings.push(`${where}: no Sinhala for ${missing.si}, no Tamil for ${missing.ta} question(s) (English is shown instead)`);
 
   const spread = [0, 0, 0, 0, 0];
   day.questions.forEach((q) => Number.isInteger(q.answer) && spread[q.answer]++);
@@ -107,12 +119,17 @@ for (const { date, day, hash } of todo) {
 
   const qRows = day.questions.map((q, i) => ({
     id: q.id, day: date, position: i + 1, topic: q.topic || "", body: q.q,
-    image_url: q.image || null, options: q.options.map(String)
+    image_url: q.image || null, options: q.options.map(String),
+    body_si: q.si?.q ?? null, options_si: q.si ? q.si.options.map(String) : null,
+    body_ta: q.ta?.q ?? null, options_ta: q.ta ? q.ta.options.map(String) : null
   }));
   await api("dq_questions?on_conflict=id", { method: "POST", prefer: "resolution=merge-duplicates", body: qRows });
   await api("dq_keys?on_conflict=question_id", {
     method: "POST", prefer: "resolution=merge-duplicates",
-    body: day.questions.map((q) => ({ question_id: q.id, correct_index: q.answer, explanation: q.explain || "" }))
+    body: day.questions.map((q) => ({
+      question_id: q.id, correct_index: q.answer, explanation: q.explain || "",
+      explanation_si: q.si?.explain ?? null, explanation_ta: q.ta?.explain ?? null
+    }))
   });
 
   // Remove questions that were deleted from the file

@@ -27,6 +27,39 @@ const PUBLIC = ["login", "register", "newpass"];
 const serverNow = () => Date.now() + clockOffset;
 
 // ==========================================================
+// Question language (menus stay in English)
+// ==========================================================
+const LANGS = [["en", "EN"], ["si", "සිං"], ["ta", "தமி"]];
+const LANG_NAMES = { en: "English", si: "සිංහල", ta: "தமிழ்" };
+let lang = "en";
+
+// A question's text in the chosen language, falling back to English when there's no translation
+function tx(q) {
+  const t = lang !== "en" ? q.tr?.[lang] : null;
+  const ok = !!(t && t.body && t.options);
+  return {
+    body: ok ? t.body : q.body,
+    options: ok ? t.options : q.options,
+    explain: ok && t.explain ? t.explain : q.explain,
+    fallback: lang !== "en" && !ok
+  };
+}
+const fallbackNote = () => `<p class="hint lang-note">Not available in ${LANG_NAMES[lang]} yet. Showing English.</p>`;
+
+function langSwitch(full = false) {
+  return `<div class="lang-seg ${full ? "full" : ""}" role="group" aria-label="Question language">${LANGS.map(([k, short]) =>
+    `<button class="${k === lang ? "on" : ""}" data-lang="${k}" lang="${k}">${full ? LANG_NAMES[k] : short}</button>`).join("")}</div>`;
+}
+function bindLangSwitch(redraw) {
+  $$("[data-lang]").forEach((b) => b.onclick = () => {
+    if (lang === b.dataset.lang) return;
+    lang = b.dataset.lang;
+    if (me) { me.lang = lang; sb.from("profiles").update({ lang }).eq("id", me.id).then(() => {}); } // remember it
+    redraw();
+  });
+}
+
+// ==========================================================
 // Push reminders
 // iPhone: only works once the app is added to the Home Screen (iOS 16.4+).
 // ==========================================================
@@ -120,6 +153,7 @@ async function loadMe() {
   if (!session) { me = null; return null; }
   const { data } = await sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
   me = data ? { ...data, user: session.user } : null;
+  if (me?.lang) lang = me.lang;
   return me;
 }
 
@@ -269,6 +303,9 @@ function renderRegister() {
       ${profileFields()}
       <label>Email<input type="email" name="email" required autocomplete="email"></label>
       <label>Password<input type="password" name="password" required minlength="6" autocomplete="new-password"><small>At least 6 characters.</small></label>
+      <label>Question language<select name="lang">
+        <option value="en">English</option><option value="si">සිංහල (Sinhala)</option><option value="ta">தமிழ் (Tamil)</option></select>
+        <small>You can change this any time.</small></label>
       <label class="check"><input type="checkbox" name="agree" required>
         <span>I agree that my details are stored to run the quiz and leaderboards. Only my name and school are shown publicly.</span></label>
       <p class="err" id="err"></p>
@@ -294,6 +331,8 @@ function renderRegister() {
       return;
     }
     const { error: nicErr } = await sb.rpc("set_my_nic", { p_nic: p.nic });
+    const chosen = f.elements.lang.value; // (f.lang would be the form's own lang attribute)
+    if (chosen !== "en") await sb.from("profiles").update({ lang: chosen }).eq("id", data.user.id);
     await loadMe();
     if (nicErr) { pendingError = nicErr.message; return go("complete"); }
     toast("Welcome! 🎉");
@@ -491,6 +530,7 @@ function drawQuiz() {
         <div class="timer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>
           <span id="timeLeft">${fmtTime((z.deadline - Date.now()) / 1000)}</span></div>
       </div>
+      <div class="lang-row">${langSwitch()}</div>
       <div class="qnums">${z.qs.map((q, k) => `<button class="qn ${z.answers[q.id] != null ? "done" : ""} ${!z.reviewing && k === z.i ? "cur" : ""}" data-go="${k}">${k + 1}</button>`).join("")}</div>
     </div>`;
 
@@ -512,14 +552,16 @@ function drawQuiz() {
     };
   } else {
     const q = z.qs[z.i];
+    const t = tx(q);
     const mine = z.answers[q.id];
     const last = z.i === z.qs.length - 1;
     app.innerHTML = `<div class="wrap quiz-wrap">${head}
-      <div class="qcard">
+      <div class="qcard" lang="${t.fallback ? "en" : lang}">
         <div class="qmeta"><span class="n">Question ${z.i + 1}</span>${q.topic ? `<span class="topic">${esc(q.topic)}</span>` : ""}</div>
+        ${t.fallback ? fallbackNote() : ""}
         ${q.image_url ? `<img class="qimg" src="${esc(q.image_url)}" alt="Diagram">` : ""}
-        <div class="qtext">${fmt(q.body)}</div>
-        <div class="opts">${q.options.map((o, k) => `
+        <div class="qtext">${fmt(t.body)}</div>
+        <div class="opts">${t.options.map((o, k) => `
           <button class="opt ${mine === k ? "picked" : ""}" data-k="${k}"><span class="l">${LETTERS[k]}</span><span>${fmt(o)}</span></button>`).join("")}</div>
         ${mine != null ? `<button class="link clear" id="clear">Clear my answer</button>` : `<p class="hint">Tap an answer. You can change it any time before submitting.</p>`}
       </div>
@@ -533,6 +575,7 @@ function drawQuiz() {
     $("#next").onclick = () => { if (last) z.reviewing = true; else z.i++; drawQuiz(); window.scrollTo(0, 0); };
   }
   $$("[data-go]").forEach((b) => b.onclick = () => { z.reviewing = false; z.i = +b.dataset.go; drawQuiz(); });
+  bindLangSwitch(drawQuiz);
   $("#leave").onclick = async () => {
     const ok = await confirmBox("Leave the quiz?", "Your answers are saved, but <b>the timer keeps running</b>. Come back before it ends.", "Leave");
     if (ok) go("home");
@@ -608,39 +651,55 @@ async function renderReview(day) {
       <p class="muted">You missed this day. Here are the questions with answers and methods.
       ${r.participants ? `<br>${r.participants} students took it · average ${Math.round(r.avg_pct ?? 0)}%.` : ""}</p></div>`;
 
-  shell("home", `
-    <div class="qtop plain"><div class="qtop-row"><a class="back" href="#home" aria-label="Home">←</a>
-      <div class="qtop-title"><b>${esc(r.title || "Daily MCQs")}</b><small>${esc(niceDay(day))}</small></div></div></div>
-    ${header}
-    <h2 class="section-title">Answers & methods</h2>
-    ${r.attempted ? `<div class="seg" id="filter">
-      <button class="on" data-f="all">All</button><button data-f="wrong">Wrong (${counts.wrong})</button>
-      <button data-f="skip">Skipped (${counts.skip})</button><button data-f="right">Correct</button></div>` : ""}
-    <div class="review-list">${qs.map((q, i) => {
-      const s = status(q);
-      return `<div class="qcard r-${s}" data-s="${s}">
-        <div class="qmeta"><span class="n">Q${i + 1}</span>
-          ${s === "right" ? `<span class="tag ok">✓ Correct</span>` : s === "wrong" ? `<span class="tag no">✗ Wrong</span>` : s === "skip" ? `<span class="tag">Skipped</span>` : q.topic ? `<span class="topic">${esc(q.topic)}</span>` : ""}</div>
-        ${q.image_url ? `<img class="qimg" src="${esc(q.image_url)}" alt="">` : ""}
-        <div class="qtext sm">${fmt(q.body)}</div>
-        <div class="opts">${q.options.map((o, k) => `
-          <div class="opt ${k === q.correct ? "right" : k === q.yours ? "wrong" : "dim"}"><span class="l">${LETTERS[k]}</span><span>${fmt(o)}</span></div>`).join("")}</div>
-        ${q.explain ? `<div class="method"><b>Method:</b> ${fmt(q.explain)}</div>` : ""}
-      </div>`;
-    }).join("")}</div>`);
+  let filter = "all";
+  let animated = false;
+  const applyFilter = () => {
+    $$("#filter button").forEach((x) => x.classList.toggle("on", x.dataset.f === filter));
+    $$(".review-list .qcard").forEach((c) => c.classList.toggle("hidden", filter !== "all" && c.dataset.s !== filter));
+  };
 
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+  // Drawn as a function so switching language redraws in place (same scroll position, same filter)
+  const draw = () => {
+    const y = window.scrollY;
+    shell("home", `
+      <div class="qtop plain"><div class="qtop-row"><a class="back" href="#home" aria-label="Home">←</a>
+        <div class="qtop-title"><b>${esc(r.title || "Daily MCQs")}</b><small>${esc(niceDay(day))}</small></div></div></div>
+      ${header}
+      <h2 class="section-title">Answers & methods ${langSwitch()}</h2>
+      ${r.attempted ? `<div class="seg" id="filter">
+        <button data-f="all">All</button><button data-f="wrong">Wrong (${counts.wrong})</button>
+        <button data-f="skip">Skipped (${counts.skip})</button><button data-f="right">Correct</button></div>` : ""}
+      <div class="review-list">${qs.map((q, i) => {
+        const s = status(q);
+        const t = tx(q);
+        return `<div class="qcard r-${s}" data-s="${s}" lang="${t.fallback ? "en" : lang}">
+          <div class="qmeta"><span class="n">Q${i + 1}</span>
+            ${s === "right" ? `<span class="tag ok">✓ Correct</span>` : s === "wrong" ? `<span class="tag no">✗ Wrong</span>` : s === "skip" ? `<span class="tag">Skipped</span>` : q.topic ? `<span class="topic">${esc(q.topic)}</span>` : ""}</div>
+          ${t.fallback ? fallbackNote() : ""}
+          ${q.image_url ? `<img class="qimg" src="${esc(q.image_url)}" alt="">` : ""}
+          <div class="qtext sm">${fmt(t.body)}</div>
+          <div class="opts">${t.options.map((o, k) => `
+            <div class="opt ${k === q.correct ? "right" : k === q.yours ? "wrong" : "dim"}"><span class="l">${LETTERS[k]}</span><span>${fmt(o)}</span></div>`).join("")}</div>
+          ${t.explain ? `<div class="method"><b>Method:</b> ${fmt(t.explain)}</div>` : ""}
+        </div>`;
+      }).join("")}</div>`);
+
     const arc = $("#arc");
-    if (arc) arc.style.strokeDashoffset = 326.7 * (1 - pct / 100);
-  }));
-  $("#share")?.addEventListener("click", async () => {
-    if (navigator.share) { try { await navigator.share({ text: shareText }); } catch { /* cancelled */ } }
-    else window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank", "noopener");
-  });
-  $$("#filter button").forEach((b) => b.onclick = () => {
-    $$("#filter button").forEach((x) => x.classList.toggle("on", x === b));
-    $$(".review-list .qcard").forEach((c) => c.classList.toggle("hidden", b.dataset.f !== "all" && c.dataset.s !== b.dataset.f));
-  });
+    if (arc && animated) arc.style.transition = "none";
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (arc) arc.style.strokeDashoffset = 326.7 * (1 - pct / 100);
+      animated = true;
+    }));
+    $("#share")?.addEventListener("click", async () => {
+      if (navigator.share) { try { await navigator.share({ text: shareText }); } catch { /* cancelled */ } }
+      else window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank", "noopener");
+    });
+    $$("#filter button").forEach((b) => b.onclick = () => { filter = b.dataset.f; applyFilter(); });
+    applyFilter();
+    bindLangSwitch(draw);
+    window.scrollTo(0, y);
+  };
+  draw();
 }
 const todayGuess = () => new Date(Date.now() + clockOffset + 5.5 * 3600e3).toISOString().slice(0, 10);
 
@@ -744,6 +803,11 @@ async function renderProfile() {
       <button class="btn btn-ghost btn-block" id="edit" style="margin-top:14px">Edit details</button>
     </div>
     <div class="card">
+      <h3 class="card-title">🌐 Question language</h3>
+      <p class="muted" style="font-size:14px;margin-bottom:12px">Questions, answers and methods appear in this language. You can also switch any time during a quiz.</p>
+      ${langSwitch(true)}
+    </div>
+    <div class="card">
       <h3 class="card-title">🔔 Daily reminders ${push === "on" ? '<span class="pill good">On</span>' : ""}</h3>
       <p class="muted" style="font-size:14px">${PUSH_TEXT[push]}</p>
       ${push === "on" ? `<button class="btn btn-ghost btn-block" id="pushToggle" style="margin-top:12px">Turn off</button>`
@@ -753,6 +817,7 @@ async function renderProfile() {
     <button class="btn btn-ghost btn-block" id="out" style="margin-top:10px">Log out</button>
     <p class="footer">Your NIC and phone are private. Only your name and school appear on leaderboards.</p>`);
   $("#out").onclick = () => sb.auth.signOut();
+  bindLangSwitch(() => { toast(`Questions will be shown in ${LANG_NAMES[lang]}.`); renderProfile(); });
   $("#pushToggle")?.addEventListener("click", async (e) => {
     e.target.disabled = true;
     if (push === "on") await disablePush(); else await enablePush();

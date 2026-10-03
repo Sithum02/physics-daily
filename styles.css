@@ -14,8 +14,8 @@
   --accent-2: #4fd1ff;
   --good: #3ddc97;
   --bad: #ff6b6b;
-  --font-head: "Space Grotesk", system-ui, sans-serif;
-  --font-body: "Inter", system-ui, sans-serif;
+  --font-head: "Space Grotesk", "Noto Sans Sinhala", "Noto Sans Tamil", system-ui, sans-serif;
+  --font-body: "Inter", "Noto Sans Sinhala", "Noto Sans Tamil", system-ui, sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }

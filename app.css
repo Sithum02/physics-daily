@@ -206,3 +206,16 @@
 /* Toasts float above the tab bar / quiz buttons and never block taps */
 .toast { pointer-events: none; }
 body:has(.tabbar) .toast, body:has(.qbar) .toast { bottom: calc(var(--tabbar-h) + 24px + var(--safe-bottom)); }
+
+/* Question language switch (EN | සිං | தமி) */
+.lang-row { display: flex; justify-content: flex-end; margin-top: 10px; }
+.lang-seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; vertical-align: middle; }
+.lang-seg button { padding: 6px 12px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--muted); font-family: var(--font-body); }
+.lang-seg button.on { background: var(--accent); color: var(--accent-ink); }
+.lang-seg.full { display: flex; }
+.lang-seg.full button { flex: 1; padding: 10px 8px; font-size: 15px; }
+.section-title .lang-seg { margin-left: auto; }
+.lang-note { margin: 0 0 10px; color: var(--accent); }
+/* Sinhala and Tamil need a little more line height to stay readable */
+[lang="si"] .qtext, [lang="ta"] .qtext, [lang="si"] .opt, [lang="ta"] .opt, [lang="si"] .method, [lang="ta"] .method { line-height: 1.75; }
+[lang="ta"] .qtext { font-size: 17px; }

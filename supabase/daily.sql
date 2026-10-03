@@ -120,6 +120,29 @@ create policy "dq_attempts admin" on public.dq_attempts for select using (public
 drop policy if exists "dq_responses admin" on public.dq_responses;
 create policy "dq_responses admin" on public.dq_responses for select using (public.is_admin());
 
+-- ---------- Languages (English always; Sinhala / Tamil optional per question) ----------
+alter table public.dq_questions
+  add column if not exists body_si    text,
+  add column if not exists body_ta    text,
+  add column if not exists options_si text[],
+  add column if not exists options_ta text[];
+alter table public.dq_keys
+  add column if not exists explanation_si text,
+  add column if not exists explanation_ta text;
+alter table public.profiles add column if not exists lang text not null default 'en';
+do $$ begin
+  alter table public.profiles add constraint profiles_lang_check check (lang in ('en', 'si', 'ta'));
+exception when duplicate_object then null; end $$;
+grant update (lang) on public.profiles to authenticated;
+
+-- Reorder a 5-option array by an attempt's shuffle (null array → null).
+create or replace function public.dq_shuffled(arr text[], perm jsonb) returns json
+language sql immutable as $$
+  select case when arr is null then null else (
+    select json_agg(arr[e.v::int + 1] order by e.ord)
+    from jsonb_array_elements_text(coalesce(perm, '[0,1,2,3,4]'::jsonb)) with ordinality e(v, ord)) end
+$$;
+
 -- ---------- Grading ----------
 -- Position picked → original option via this attempt's shuffle.
 create or replace function public.dq_orig(a public.dq_attempts, qid text) returns int
@@ -237,7 +260,11 @@ begin
         'id', q.id, 'topic', q.topic, 'body', q.body, 'image_url', q.image_url,
         'options', (select json_agg(q.options[e.v::int + 1] order by e.ord)
                       from jsonb_array_elements_text(coalesce(a.perms -> q.id, '[0,1,2,3,4]'::jsonb))
-                           with ordinality e(v, ord))
+                           with ordinality e(v, ord)),
+        -- Sinhala / Tamil versions, shuffled the same way as the English options
+        'tr', json_build_object(
+          'si', json_build_object('body', q.body_si, 'options', dq_shuffled(q.options_si, a.perms -> q.id)),
+          'ta', json_build_object('body', q.body_ta, 'options', dq_shuffled(q.options_ta, a.perms -> q.id)))
       ) order by q.position)
       from dq_questions q where q.day = p_day)
   );
@@ -305,7 +332,12 @@ begin
                  where e.v::int = k.correct_index)
           else k.correct_index end,
         'yours', case when has and jsonb_typeof(a.answers -> q.id) = 'number' then (a.answers ->> q.id)::int end,
-        'explain', k.explanation
+        'explain', k.explanation,
+        'tr', json_build_object(
+          'si', json_build_object('body', q.body_si, 'explain', k.explanation_si,
+                  'options', case when has then dq_shuffled(q.options_si, a.perms -> q.id) else to_json(q.options_si) end),
+          'ta', json_build_object('body', q.body_ta, 'explain', k.explanation_ta,
+                  'options', case when has then dq_shuffled(q.options_ta, a.perms -> q.id) else to_json(q.options_ta) end))
       ) order by q.position)
       from dq_questions q left join dq_keys k on k.question_id = q.id
       where q.day = p_day)
