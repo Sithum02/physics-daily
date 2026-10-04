@@ -5,7 +5,7 @@ export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const LETTERS = ["A", "B", "C", "D", "E"];
 // Chart colours, validated for colour-blind separation on the dark surface
-export const SERIES = { you: "#c4820a", avg: "#3399cc" };
+export const SERIES = { you: "#d97706", avg: "#2563eb" };
 
 export const DISTRICTS = [
   "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", "Galle", "Gampaha", "Hambantota",

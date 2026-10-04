@@ -136,7 +136,19 @@ function bindPushPrompt() {
 // ==========================================================
 // Boot + router
 // ==========================================================
+// Opening screen (සත්කාර · by Sithum De Zoysa): stays at least SPLASH_MIN ms from page start, then fades
+const SPLASH_MIN = 1500;
+let splashGone = false;
+function hideSplash() {
+  if (splashGone) return;
+  splashGone = true;
+  const el = document.getElementById("splash");
+  if (!el) return;
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 500); }, Math.max(0, SPLASH_MIN - performance.now()));
+}
+
 if (!configured) {
+  hideSplash();
   app.innerHTML = `<div class="wrap center"><img src="icons/icon-192.png" class="logo-lg" alt="">
     <h2>Almost ready</h2><p class="muted">The app isn't connected to its database yet.</p></div>`;
 } else {
@@ -145,7 +157,7 @@ if (!configured) {
     if (event === "SIGNED_OUT") { me = null; location.hash = "login"; }
   });
   window.addEventListener("hashchange", route);
-  route();
+  route().finally(hideSplash);
 }
 
 async function loadMe() {
@@ -206,16 +218,18 @@ function shell(active, inner) {
   ];
   if (me?.is_admin) tabs.push(["admin", "Admin", `<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/>`]);
   app.innerHTML = `
-    <div class="wrap has-nav">${inner}</div>
+    <div class="wrap has-nav">${inner}${inner.includes("class=\"footer") ? "" : signature()}</div>
     <nav class="tabbar">${tabs.map(([k, label, icon]) => `
       <a href="#${k}" class="${k === active ? "on" : ""}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
         <span>${label}</span></a>`).join("")}</nav>`;
 }
 
+function signature() { return `<p class="footer sig"><span lang="si">සත්කාර</span> · by <b>Sithum De Zoysa</b></p>`; }
+
 function brandHeader(right = "") {
   return `<header class="top"><div class="brand"><img src="icons/icon-192.png" alt="">
-    <div><b>Physics Daily</b><small>Sithum De Zoysa · A/L</small></div></div>${right}</header>`;
+    <div><b>Physics Daily</b><small>by Sithum De Zoysa</small></div></div>${right}</header>`;
 }
 
 async function rpc(name, args) {
@@ -230,7 +244,8 @@ async function rpc(name, args) {
 function authFrame(inner) {
   app.innerHTML = `<div class="wrap auth">
     <div class="auth-head"><img src="icons/icon-192.png" class="logo-lg" alt="">
-      <h1>Physics Daily</h1><p class="muted">Daily A/L Physics MCQs by Sithum De Zoysa</p></div>
+      <h1>Physics Daily</h1><p class="muted"><span class="si-brand" lang="si">සත්කාර</span> · by <b>Sithum De Zoysa</b></p>
+      <p class="muted" style="font-size:13px;margin-top:2px">Daily A/L Physics MCQs</p></div>
     ${inner}</div>`;
 }
 
@@ -458,7 +473,7 @@ async function renderHome() {
           <span class="info"><b>${esc(d.title || "Daily MCQs")}</b><small>${d.count} questions${done ? ` · ${fmtTime(d.time_taken)}` : " · view answers"}</small></span>
           ${done ? `<span class="pill ${pctClass(p)}">${d.score}/${d.total}</span>` : `<span class="pill">Missed</span>`}</a>`;
       }).join("")}</div>` : ""}
-    <p class="footer">By Sithum De Zoysa · <a href="https://wa.me/${WHATSAPP_NUMBER}" target="_blank" rel="noopener">WhatsApp</a></p>`);
+    <p class="footer"><span lang="si">සත්කාර</span> · by <b>Sithum De Zoysa</b> · <a href="https://wa.me/${WHATSAPP_NUMBER}" target="_blank" rel="noopener">WhatsApp</a></p>`);
 
   startCountdowns();
   bindPushPrompt();
@@ -628,13 +643,13 @@ async function renderReview(day) {
   const counts = { right: 0, wrong: 0, skip: 0 };
   qs.forEach((q) => counts[status(q)] != null && counts[status(q)]++);
   const pct = r.attempted && r.total ? Math.round((r.score / r.total) * 100) : 0;
-  const color = pct >= 75 ? "#3ddc97" : pct >= 50 ? "#ffc53d" : "#ff6b6b";
+  const color = pct >= 75 ? "#16a34a" : pct >= 50 ? "#f59e0b" : "#dc2626";
   const url = location.origin + location.pathname;
   const shareText = `I scored ${r.score}/${r.total} on Physics Daily by Sithum De Zoysa 🔬${r.rank ? ` (rank #${r.rank})` : ""}! Try today's A/L Physics MCQs: ${url}`;
 
   const header = r.attempted ? `
     <div class="result card">
-      <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" stroke="#26304f" stroke-width="10" fill="none"/>
+      <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" style="stroke:var(--line)" stroke-width="10" fill="none"/>
         <circle id="arc" cx="60" cy="60" r="52" stroke="${color}" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7" style="transition:stroke-dashoffset 1s ease"/></svg>
         <div class="v"><b>${r.score}/${r.total}</b><small>${pct}%</small></div></div>
       <h2>${pct === 100 ? "Perfect score! 🏆" : pct >= 75 ? "Excellent work!" : pct >= 50 ? "Good effort!" : "Keep practising!"}</h2>
@@ -645,11 +660,12 @@ async function renderReview(day) {
         <div><b>${fmtTime(r.time_taken)}</b><small>Time</small></div>
       </div>
       <p class="rank-line">🏅 Rank <b>#${r.rank}</b> of ${r.participants}${day === todayGuess() ? " so far" : ""} · Class average <b>${Math.round(r.avg_pct ?? 0)}%</b></p>
+      <p class="sig-line">Questions &amp; methods by <b>Sithum De Zoysa</b></p>
       <div class="sheet-btns"><button class="btn btn-wa" id="share">Share score</button><a class="btn btn-ghost" href="#ranks/today">Leaderboard</a></div>
     </div>` : `
     <div class="card"><h2>${esc(r.title || "Daily MCQs")}</h2>
       <p class="muted">You missed this day. Here are the questions with answers and methods.
-      ${r.participants ? `<br>${r.participants} students took it · average ${Math.round(r.avg_pct ?? 0)}%.` : ""}</p></div>`;
+      ${r.participants ? `<br>${r.participants} student${r.participants === 1 ? "" : "s"} took it · average ${Math.round(r.avg_pct ?? 0)}%.` : ""}</p></div>`;
 
   let filter = "all";
   let animated = false;

@@ -45,8 +45,8 @@ begin
   end if;
   return json_build_object(
     'title', case p_kind
-      when 'morning' then 'Today''s Physics Daily is live 🔬'
-      when 'evening' then '⏳ 4 hours left for today''s quiz' end,
+      when 'morning' then '🔬 Today''s quiz is live · Sithum De Zoysa'
+      when 'evening' then '⏳ 4 hours left · Sithum De Zoysa' end,
     'body', case p_kind
       when 'morning' then n || ' new MCQs' || coalesce(' · ' || nullif(ttl, ''), '') || '. Closes at midnight.'
       when 'evening' then 'You haven''t done today''s ' || n || ' questions yet. Keep your 🔥 streak going!' end,
