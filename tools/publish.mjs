@@ -28,8 +28,7 @@ async function syncContent() {
     if (git("status --porcelain")) git(`commit -q -m "Update ${new Date().toISOString().slice(0, 16).replace("T", " ")}"`);
     if (git("remote")) { git("push -q origin HEAD"); console.log("✓ questions + backup saved to private GitHub"); }
     else console.log("⚠ content/ has no GitHub remote yet; saved locally only");
-  } catch (e) { console.log("⚠ content sync failed: " + e.message.split("
-")[0]); }
+  } catch (e) { console.log("⚠ content sync failed: " + e.message.split(/\r?\n/)[0]); }
 }
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
