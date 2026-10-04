@@ -82,8 +82,8 @@
    Subjects: Physics (default amber + blue) · Chemistry (emerald + violet)
    ========================================================== */
 body[data-subject="chem"] { --accent: #34d399; --accent-ink: #022c1e; --accent-text: #047857; --accent-2: #7c3aed; }
-body[data-subject="chem"] .hero { background: linear-gradient(135deg, #ffffff, #effdf6 60%, #f4efff); }
-body[data-subject="chem"] .hero::after { background: radial-gradient(circle, rgba(52, 211, 153, .35), transparent 70%); }
+body[data-subject="chem"] .hero { background: linear-gradient(135deg, #ffffff, #f5f1ff 60%, #ecfbf4); }
+body[data-subject="chem"] .hero::after { background: radial-gradient(circle, rgba(52, 211, 153, .28), transparent 70%); }
 body[data-subject="chem"] .opt.picked { background: rgba(52, 211, 153, .16); }
 body[data-subject="chem"] .rank-row.me { background: rgba(52, 211, 153, .14); }
 body[data-subject="chem"] .my-rank { background: linear-gradient(135deg, #ecfdf5, #ffffff); }
@@ -108,25 +108,37 @@ body[data-subject="chem"] .avatar { background: #ecfdf5; }
 /* Subject picker */
 .si-title { font-family: "Noto Sans Sinhala", sans-serif; font-weight: 700; line-height: 1.6; padding-top: .1em; }
 .hub-brand { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.hub-brand .si { font-family: "Noto Sans Sinhala", sans-serif; font-weight: 700; font-size: 30px; line-height: 1.55; padding-top: .12em;
-  color: #b86e00; } /* solid colour: gradients clip Sinhala marks */
+.hub-brand .si { font-family: "Noto Sans Sinhala", sans-serif; font-weight: 700; font-size: 30px; line-height: 1.6;
+  padding: .18em .12em .06em; margin: -.18em 0 0 -.12em;   /* room above the letters so the gradient never clips marks like ් */
+  background: linear-gradient(90deg, #d97706, #f59e0b 40%, #2563eb); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hub-logo { display: flex; align-items: center; gap: 10px; }
+.hub-atom { width: 42px; height: 42px; flex: none; }
+.hub-atom .o { transform-origin: 256px 256px; animation: sp-spin 6s linear infinite; }
+.hub-atom .o2 { animation-duration: 8s; animation-direction: reverse; }
+.hub-atom .o3 { animation-duration: 10s; }
+.hub-atom .n { transform-origin: 256px 256px; animation: sp-pulse 1.6s ease-in-out infinite; }
+@keyframes sp-spin { to { transform: rotate(360deg); } }
+@keyframes sp-pulse { 50% { transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .hub-atom .o, .hub-atom .n { animation: none; } }
+.more-soon { text-align: center; color: var(--muted); font-size: 13.5px; margin: 6px 0 4px; }
+.more-soon b { color: var(--text); font-weight: 600; }
 .hub-brand small { display: block; color: var(--muted); font-size: 12.5px; margin-top: -4px; }
 .hub-brand small b { color: var(--text); }
 .hub-q { font-family: var(--font-head); font-size: 22px; margin: 4px 0 14px; }
-.subj { position: relative; overflow: hidden; border-radius: 22px; padding: 18px; margin-bottom: 14px; border: 1.5px solid var(--line); background: #fff; box-shadow: var(--shadow); }
+.subj { position: relative; overflow: hidden; border-radius: 22px; padding: 22px 20px; margin-bottom: 16px; border: 1.5px solid var(--line); background: #fff; box-shadow: var(--shadow); }
 .subj.phy { background: linear-gradient(135deg, #ffffff, #f1f5ff 55%, #fff7e3); border-color: #c7d6fb; }
-.subj.chem { background: linear-gradient(135deg, #ffffff, #ecfdf5 55%, #f4efff); border-color: #a7f0d2; }
+.subj.chem { background: linear-gradient(135deg, #ffffff, #f5f1ff 55%, #ecfbf4); border-color: #d9cdfb; }
 .subj::after { content: ""; position: absolute; right: -50px; top: -50px; width: 170px; height: 170px; border-radius: 50%; pointer-events: none; }
 .subj.phy::after { background: radial-gradient(circle, rgba(255, 197, 61, .35), transparent 70%); }
-.subj.chem::after { background: radial-gradient(circle, rgba(52, 211, 153, .35), transparent 70%); }
+.subj.chem::after { background: radial-gradient(circle, rgba(52, 211, 153, .28), transparent 70%); }
 .subj-top { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
-.subj-top img { width: 52px; height: 52px; border-radius: 14px; box-shadow: 0 0 0 1px var(--line); }
-.subj-top b { font-family: var(--font-head); font-size: 20px; display: block; line-height: 1.15; }
+.subj-top img { width: 56px; height: 56px; border-radius: 14px; box-shadow: 0 0 0 1px var(--line); }
+.subj-top b { font-family: var(--font-head); font-size: 21px; display: block; line-height: 1.15; }
 .subj-top small { color: var(--muted); font-size: 13px; }
 .subj-streak { margin-left: auto; text-align: center; font-family: var(--font-head); font-weight: 700; font-size: 18px; line-height: 1.1; }
 .subj-streak small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 10.5px; color: var(--muted); }
 .subj.phy .subj-streak { color: #b86e00; } .subj.chem .subj-streak { color: #047857; }
-.subj-status { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .85); border: 1px solid var(--line);
+.subj-status { margin-top: 16px; padding: 14px 16px; border-radius: 14px; background: rgba(255, 255, 255, .85); border: 1px solid var(--line);
   display: flex; align-items: center; justify-content: space-between; gap: 10px; position: relative; z-index: 1; }
 .subj-status b { font-size: 14.5px; display: block; }
 .subj-status small { color: var(--muted); font-size: 12.5px; } .subj-status small b { display: inline; font-size: inherit; color: var(--text); }

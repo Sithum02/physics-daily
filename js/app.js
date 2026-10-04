@@ -447,8 +447,12 @@ function renderBanned() {
 // ==========================================================
 // Home
 // ==========================================================
-// "NEW" badge on the Chemistry card for its first two weeks
-const NEW_UNTIL = { chem: "2026-10-18" };
+// The rotating atom from the opening screen, shown small next to සත්කාර on the subject picker
+const HUB_ATOM = `<svg class="hub-atom" viewBox="0 0 512 512" aria-hidden="true"><g fill="none" stroke-width="22">
+  <g class="o"><ellipse cx="256" cy="256" rx="190" ry="70" stroke="#2563eb"/><circle cx="446" cy="256" r="22" fill="#2563eb" stroke="none"/></g>
+  <g class="o o2"><ellipse cx="256" cy="256" rx="190" ry="70" stroke="#f59e0b" transform="rotate(60 256 256)"/></g>
+  <g class="o o3"><ellipse cx="256" cy="256" rx="190" ry="70" stroke="#0f172a" transform="rotate(-60 256 256)"/></g></g>
+  <circle class="n" cx="256" cy="256" r="40" fill="#ffc53d"/></svg>`;
 
 // Subject picker (main screen after login)
 async function renderHub() {
@@ -480,33 +484,22 @@ async function renderHub() {
     }
     return `<div class="subj ${x.subject}">
       <a class="subj-top" href="#s/${x.subject}"><img src="${S.icon}" alt="">
-        <div><b>${S.name}${today < (NEW_UNTIL[x.subject] || "") ? `<span class="badge-new">NEW</span>` : ""}</b><small>${S.app} · open →</small></div>
+        <div><b>${S.name}</b><small>${S.app} · open →</small></div>
         <div class="subj-streak">🔥 ${x.streak}<small>day streak</small></div></a>
       <div class="subj-status">${status}</div></div>`;
   };
 
   const shown = hub.subjects.filter((x) => subs.includes(x.subject));
-  let both = "";
-  if (shown.length > 1) {
-    const need = shown.filter((x) => x.count);
-    const done = need.filter((x) => x.submitted_at).length;
-    const n = hub.science_streak;
-    const msg = !need.length ? "No quizzes today"
-      : done === need.length ? "Both done today! See you tomorrow 🎉"
-      : n ? `Finish ${need.length - done === 1 ? "the other quiz" : "both quizzes"} today to keep it` : "Do both quizzes today to start it";
-    both = `<div class="both"><span class="ic">🔥</span><div><b>Science streak · ${n} day${n === 1 ? "" : "s"}</b><small>${msg}</small></div>
-      <div class="dots2">${shown.map((x) => `<i class="${x.subject} ${x.submitted_at ? "done" : ""}">${x.subject === "phy" ? "P" : "C"}${x.submitted_at ? " ✓" : ""}</i>`).join("")}</div></div>`;
-  }
 
   shell("home", `
-    <div class="hub-brand"><div><div class="si" lang="si">සත්කාර</div><small>by <b>Sithum De Zoysa</b></small></div>
+    <div class="hub-brand"><div class="hub-logo">${HUB_ATOM}<div><div class="si" lang="si">සත්කාර</div><small>by <b>Sithum De Zoysa</b></small></div></div>
       <span class="hello">Hi, ${esc(me.full_name.split(" ")[0])} 👋</span></div>
     ${statuses.map((st) => adminBanner(st)).join("")}
     ${pushCard}
     <h2 class="hub-q">Which subject today?</h2>
     ${shown.map(card).join("")}
-    ${both}
     ${subs.length < SUBJECT_KEYS.length ? `<p class="hint center">More subjects can be turned on in <a class="link" href="#profile">Profile</a>.</p>` : ""}
+    <p class="more-soon">More A/L subjects will be added soon. <b>Stay tuned!</b></p>
     <p class="footer"><span lang="si">සත්කාර</span> · by <b>Sithum De Zoysa</b> · <a href="https://wa.me/${WHATSAPP_NUMBER}" target="_blank" rel="noopener">WhatsApp</a></p>`);
   startCountdowns();
   bindPushPrompt();
@@ -918,7 +911,7 @@ async function renderProfile() {
       <h2>${esc(me.full_name)}</h2><p class="muted">${esc(me.school)}</p>
     </div>
     <div class="card">
-      <h3 class="card-title">📚 My subjects</h3>
+      <h3 class="card-title">My subjects</h3>
       <div class="subj-rows">${SUBJECT_KEYS.map((k) => `
         <label class="subj-row"><img src="${SUBJECTS[k].icon}" alt=""><span class="t"><b>${SUBJECTS[k].name}</b><small>Daily quiz + reminders</small></span>
           <input type="checkbox" class="switch" data-subj="${k}" ${subs.includes(k) ? "checked" : ""}></label>`).join("")}</div>
