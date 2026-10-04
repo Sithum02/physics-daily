@@ -30,7 +30,8 @@
     .sp-atom .o2 { animation-duration: 8s; animation-direction: reverse; }
     .sp-atom .o3 { animation-duration: 10s; }
     .sp-atom .n { transform-origin: 256px 256px; animation: sp-pulse 1.6s ease-in-out infinite; }
-    .sp-name { font-family: "Noto Sans Sinhala", sans-serif; font-weight: 700; font-size: 52px; line-height: 1.15; letter-spacing: .01em;
+    .sp-name { font-family: "Noto Sans Sinhala", sans-serif; font-weight: 700; font-size: 52px; line-height: 1.6; letter-spacing: .01em;
+      padding: .18em .12em .06em; margin-top: -.18em; /* room for marks above the letters (e.g. ් ), so the gradient never clips them */
       background: linear-gradient(90deg, #d97706, #f59e0b 40%, #2563eb); -webkit-background-clip: text; background-clip: text; color: transparent;
       opacity: 0; animation: sp-up .6s ease .1s forwards; }
     .sp-by { margin-top: 10px; font-size: 17px; color: #55607a; opacity: 0; animation: sp-up .6s ease .35s forwards; }
