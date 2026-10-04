@@ -12,6 +12,25 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
+import { execSync } from "node:child_process";
+import { backup, lastBackupAge } from "./backup.mjs";
+
+// After publishing: daily database backup + push the private content repo (questions + backups) to GitHub
+async function syncContent() {
+  try {
+    if (lastBackupAge() > 20 * 3600e3) await backup();
+  } catch (e) { console.log("⚠ backup failed: " + e.message); }
+  const dir = join(root, "content");
+  if (!existsSync(join(dir, ".git"))) { console.log("⚠ content/ is not backed up to GitHub yet (see WORKFLOW.md)"); return; }
+  try {
+    const git = (c) => execSync(`git ${c}`, { cwd: dir, stdio: "pipe" }).toString().trim();
+    git("add -A");
+    if (git("status --porcelain")) git(`commit -q -m "Update ${new Date().toISOString().slice(0, 16).replace("T", " ")}"`);
+    if (git("remote")) { git("push -q origin HEAD"); console.log("✓ questions + backup saved to private GitHub"); }
+    else console.log("⚠ content/ has no GitHub remote yet; saved locally only");
+  } catch (e) { console.log("⚠ content sync failed: " + e.message.split("
+")[0]); }
+}
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const daysDir = join(root, "content", "days");
@@ -112,7 +131,7 @@ let stamps = {};
 try { stamps = JSON.parse(readFileSync(stampFile, "utf8")); } catch { /* first run */ }
 
 const todo = days.filter((d) => forced.length ? forced.includes(d.date) : stamps[d.date] !== d.hash);
-if (!todo.length) { console.log("Nothing changed since the last upload."); process.exit(0); }
+if (!todo.length) { console.log("Nothing changed since the last upload."); await syncContent(); process.exit(0); }
 
 for (const { date, day, hash } of todo) {
   await api("dq_days?on_conflict=day", { method: "POST", prefer: "resolution=merge-duplicates", body: [{ day: date, title: day.title || "" }] });
@@ -147,3 +166,4 @@ writeFileSync(stampFile, JSON.stringify(stamps, null, 2));
 const t = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10); // Sri Lanka date
 const ahead = days.filter((d) => d.date > t).map((d) => d.date);
 console.log(`Done.${ahead.length ? ` Scheduled ahead: ${ahead.join(", ")}` : ""}`);
+await syncContent();

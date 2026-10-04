@@ -301,12 +301,12 @@ begin
   select count(*), avg(x.score::numeric / nullif(x.total, 0) * 100)
     into v_n, v_avg
   from dq_attempts x join profiles pr on pr.id = x.student_id
-  where x.day = p_day and x.submitted_at is not null and not pr.is_banned;
+  where x.day = p_day and x.submitted_at is not null and not pr.is_banned and not pr.is_admin;
 
   if has then
     select count(*) + 1 into v_rank
     from dq_attempts x join profiles pr on pr.id = x.student_id
-    where x.day = p_day and x.submitted_at is not null and not pr.is_banned and x.id <> a.id
+    where x.day = p_day and x.submitted_at is not null and not pr.is_banned and not pr.is_admin and x.id <> a.id
       and (x.score > a.score or (x.score = a.score and x.time_taken < a.time_taken));
   end if;
 
@@ -393,7 +393,7 @@ begin
                round(avg(a.time_taken))::int as avg_time,
                round(100.0 * sum(a.score) / nullif(total_q, 0), 1) as pct
         from dq_attempts a join profiles p on p.id = a.student_id
-        where a.submitted_at is not null and a.day between d0 and t and not p.is_banned
+        where a.submitted_at is not null and a.day between d0 and t and not p.is_banned and not p.is_admin
         group by p.id, p.full_name, p.school
       ) r where r.rank <= 100 or r.me), '[]'::json)
   );
@@ -427,12 +427,12 @@ begin
       select json_agg(h order by h.day) from (
         select a.day, d.title, a.score, a.total, a.time_taken,
                (select count(*) + 1 from dq_attempts x join profiles pr on pr.id = x.student_id
-                 where x.day = a.day and x.submitted_at is not null and not pr.is_banned and x.id <> a.id
+                 where x.day = a.day and x.submitted_at is not null and not pr.is_banned and not pr.is_admin and x.id <> a.id
                    and (x.score > a.score or (x.score = a.score and x.time_taken < a.time_taken)))::int as rank,
                (select count(*) from dq_attempts x join profiles pr on pr.id = x.student_id
-                 where x.day = a.day and x.submitted_at is not null and not pr.is_banned)::int as participants,
-               (select round(avg(x.score::numeric / nullif(x.total, 0) * 100), 1) from dq_attempts x
-                 where x.day = a.day and x.submitted_at is not null) as avg_pct
+                 where x.day = a.day and x.submitted_at is not null and not pr.is_banned and not pr.is_admin)::int as participants,
+               (select round(avg(x.score::numeric / nullif(x.total, 0) * 100), 1) from dq_attempts x join profiles pr on pr.id = x.student_id
+                 where x.day = a.day and x.submitted_at is not null and not pr.is_banned and not pr.is_admin) as avg_pct
         from dq_attempts a join dq_days d on d.day = a.day
         where a.student_id = uid and a.submitted_at is not null
       ) h), '[]'::json),
@@ -572,3 +572,82 @@ end $$;
 -- Only logged-in users may call these (anon gets nothing).
 revoke execute on function public.dq_grade(uuid) from public, anon, authenticated;
 revoke execute on function public.dq_finalize_expired() from public, anon;
+
+-- ---------- Report a mistake ----------
+create table if not exists public.dq_reports (
+  id          uuid primary key default gen_random_uuid(),
+  question_id text not null references public.dq_questions(id) on delete cascade,
+  student_id  uuid not null references public.profiles(id) on delete cascade,
+  reason      text not null default '',
+  message     text not null default '',
+  status      text not null default 'open' check (status in ('open', 'fixed', 'dismissed')),
+  created_at  timestamptz not null default now(),
+  unique (question_id, student_id)
+);
+alter table public.dq_reports enable row level security;
+drop policy if exists "dq_reports admin" on public.dq_reports;
+create policy "dq_reports admin" on public.dq_reports for select using (public.is_admin());
+
+-- A student reports a question (only after submitting that day's quiz, or once the day is over).
+create or replace function public.dq_report(p_question text, p_reason text, p_message text) returns void
+language plpgsql security definer set search_path = public as $$
+declare p profiles; d date;
+begin
+  p := dq_me();
+  if p.is_banned then raise exception 'Your account has been suspended'; end if;
+  select day into d from dq_questions where id = p_question;
+  if not found then raise exception 'Question not found'; end if;
+  if d >= lk_today() and not exists (
+       select 1 from dq_attempts where day = d and student_id = p.id and submitted_at is not null) then
+    raise exception 'You can report a question after submitting the quiz';
+  end if;
+  insert into dq_reports (question_id, student_id, reason, message)
+  values (p_question, p.id, left(coalesce(p_reason, ''), 40), left(coalesce(p_message, ''), 500))
+  on conflict (question_id, student_id) do update
+    set reason = excluded.reason, message = excluded.message, status = 'open', created_at = now();
+end $$;
+
+create or replace function public.dq_admin_reports(p_status text default 'open') returns json
+language plpgsql security definer set search_path = public as $$
+begin
+  perform dq_require_admin();
+  return coalesce((
+    select json_agg(x order by x.created_at desc) from (
+      select r.id, r.question_id, r.reason, r.message, r.status, r.created_at,
+             q.day, q.position, q.body, q.options, k.correct_index, d.title,
+             p.full_name, p.school
+      from dq_reports r
+      join dq_questions q on q.id = r.question_id
+      join dq_days d on d.day = q.day
+      left join dq_keys k on k.question_id = q.id
+      join profiles p on p.id = r.student_id
+      where r.status = p_status
+      order by r.created_at desc
+      limit 300
+    ) x), '[]'::json);
+end $$;
+
+create or replace function public.dq_admin_set_report(p_id uuid, p_status text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform dq_require_admin();
+  if p_status not in ('open', 'fixed', 'dismissed') then raise exception 'Bad status'; end if;
+  update dq_reports set status = p_status where id = p_id;
+end $$;
+
+-- ---------- Schedule health (for the empty-day alert) ----------
+create or replace function public.dq_admin_status() returns json
+language plpgsql security definer set search_path = public as $$
+declare t date := lk_today();
+begin
+  perform dq_require_admin();
+  return json_build_object(
+    'today', t,
+    'today_count', (select count(*) from dq_questions where day = t),
+    'tomorrow_count', (select count(*) from dq_questions where day = t + 1),
+    'days_ahead', (select count(distinct day) from dq_questions where day > t),
+    'next_empty_day', (select min(g::date) from generate_series(t + 1, t + 90, interval '1 day') g
+                        where not exists (select 1 from dq_questions q where q.day = g::date)),
+    'open_reports', (select count(*) from dq_reports where status = 'open')
+  );
+end $$;

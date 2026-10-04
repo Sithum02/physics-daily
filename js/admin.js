@@ -21,12 +21,42 @@ export async function renderAdmin(c) {
   if (a === "d" && b) return daySheet(b);
   if (a === "days") return days();
   if (a === "notify") return notify();
+  if (a === "reports") return reports(b || "open");
   return students();
 }
 
 const seg = (on) => `<div class="seg"><a href="#admin/students" class="${on === "students" ? "on" : ""}">Students</a>
-  <a href="#admin/days" class="${on === "days" ? "on" : ""}">Daily sheets</a>
+  <a href="#admin/days" class="${on === "days" ? "on" : ""}">Sheets</a>
+  <a href="#admin/reports" class="${on === "reports" ? "on" : ""}">Reports</a>
   <a href="#admin/notify" class="${on === "notify" ? "on" : ""}">Notify</a></div>`;
+
+// ---------- Question reports from students ----------
+async function reports(status) {
+  ctx.shell("admin", `<h1 class="page-title">Admin</h1>${seg("reports")}<div class="spinner"></div>`);
+  const list = await rpc("dq_admin_reports", { p_status: status });
+  const tabs = [["open", "Open"], ["fixed", "Fixed"], ["dismissed", "Dismissed"]];
+  ctx.shell("admin", `
+    <h1 class="page-title">Admin</h1>${seg("reports")}
+    <div class="seg">${tabs.map(([k, l]) => `<a href="#admin/reports/${k}" class="${k === status ? "on" : ""}">${l}</a>`).join("")}</div>
+    ${status === "open" ? `<p class="hint" style="margin:-4px 0 12px">To correct a question, tell Claude, e.g. <i>"Q3 on 4 Oct: the answer should be 2"</i>. Everyone is re-marked automatically. Then mark the report <b>Fixed</b>.</p>` : ""}
+    ${list.length ? list.map((r) => `
+      <div class="qcard" style="margin-bottom:12px">
+        <div class="qmeta"><span class="n">${esc(niceDay(r.day))} · Q${r.position}</span><span class="pill low">${esc(r.reason || "Report")}</span></div>
+        <div class="qtext sm" style="margin-bottom:8px">${fmt(r.body)}</div>
+        <p class="hint" style="margin:0 0 8px">Correct answer now: <b>${r.correct_index == null ? "—" : `${LETTERS[r.correct_index]}. ${fmt(r.options[r.correct_index])}`}</b></p>
+        ${r.message ? `<div class="method">“${esc(r.message)}”</div>` : ""}
+        <p class="hint">From <b>${esc(r.full_name)}</b> · ${esc(r.school || "")} · ${esc(new Date(r.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</p>
+        ${status === "open" ? `<div class="sheet-btns" style="margin-top:10px">
+          <button class="btn btn-ghost btn-sm" data-set="dismissed" data-id="${r.id}">Dismiss</button>
+          <button class="btn btn-primary btn-sm" data-set="fixed" data-id="${r.id}">Mark fixed</button></div>`
+        : `<div class="sheet-btns" style="margin-top:10px"><button class="btn btn-ghost btn-sm" data-set="open" data-id="${r.id}">Re-open</button></div>`}
+      </div>`).join("") : `<div class="empty">${status === "open" ? "No open reports. 🎉" : "Nothing here."}</div>`}`);
+  $$("[data-set]").forEach((btn) => btn.onclick = async () => {
+    await rpc("dq_admin_set_report", { p_id: btn.dataset.id, p_status: btn.dataset.set });
+    toast(btn.dataset.set === "fixed" ? "Marked fixed." : btn.dataset.set === "dismissed" ? "Dismissed." : "Re-opened.");
+    reports(status);
+  });
+}
 
 // ---------- Send a notification ----------
 async function notify() {
@@ -70,11 +100,12 @@ function csv(name, head, rows) {
 // ---------- Students ----------
 async function students() {
   ctx.shell("admin", `<h1 class="page-title">Admin</h1>${seg("students")}<div class="spinner"></div>`);
-  const list = await rpc("dq_admin_students");
+  const [list, st] = await Promise.all([rpc("dq_admin_students"), rpc("dq_admin_status").catch(() => null)]);
   const active7 = list.filter((s) => s.last_day && Date.parse(s.last_day) > Date.now() - 7 * 864e5).length;
 
   ctx.shell("admin", `
     <h1 class="page-title">Admin</h1>${seg("students")}
+    ${ctx.adminBanner ? ctx.adminBanner(st) : ""}
     <div class="tiles">
       <div class="tile"><small>Students</small><b>${list.length}</b></div>
       <div class="tile"><small>Active (7 days)</small><b>${active7}</b></div>

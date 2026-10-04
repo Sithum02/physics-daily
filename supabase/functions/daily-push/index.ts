@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   if (!(await allowed(req))) return json({ error: "Not allowed" }, 401);
 
   const body = await req.json().catch(() => ({}));
-  const kind = ["morning", "evening"].includes(body.kind) ? body.kind : "custom";
+  const kind = ["morning", "evening", "admin_alert"].includes(body.kind) ? body.kind : "custom";
   const { data: t, error } = await db.rpc("dq_push_targets", { p_kind: kind });
   if (error) return json({ error: error.message }, 500);
 

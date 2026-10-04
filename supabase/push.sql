@@ -43,6 +43,20 @@ begin
   if p_kind in ('morning', 'evening') and n = 0 then
     return json_build_object('subs', '[]'::json, 'reason', 'no quiz today');
   end if;
+
+  -- 6 pm check for the admin: warn if tomorrow has no questions yet
+  if p_kind = 'admin_alert' then
+    if exists (select 1 from dq_questions where day = t + 1) then
+      return json_build_object('subs', '[]'::json, 'reason', 'tomorrow is scheduled');
+    end if;
+    return json_build_object(
+      'title', '⚠️ No quiz scheduled for tomorrow',
+      'body', to_char(t + 1, 'Dy DD Mon') || ' has no questions yet. Open VS Code and ask Claude to add tomorrow''s quiz.',
+      'subs', coalesce((
+        select json_agg(json_build_object('endpoint', s.endpoint, 'p256dh', s.p256dh, 'auth', s.auth))
+        from dq_push_subs s join profiles p on p.id = s.student_id where p.is_admin), '[]'::json));
+  end if;
+
   return json_build_object(
     'title', case p_kind
       when 'morning' then '🔬 Today''s quiz is live · Sithum De Zoysa'

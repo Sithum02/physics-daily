@@ -196,7 +196,7 @@ async function route() {
       case "admin": {
         if (!me.is_admin) return go("home");
         const mod = await import("./admin.js");
-        return await mod.renderAdmin({ sb, me, app, a, b, shell, go });
+        return await mod.renderAdmin({ sb, me, app, a, b, shell, go, adminBanner });
       }
       default: return await renderHome();
     }
@@ -419,7 +419,8 @@ function renderBanned() {
 // ==========================================================
 async function renderHome() {
   shell("home", `${brandHeader()}<div class="spinner"></div>`);
-  const [home, stats, board] = await Promise.all([rpc("dq_home"), rpc("dq_stats"), rpc("dq_leaderboard", { p_period: "today" })]);
+  const [home, stats, board, adminStatus] = await Promise.all([rpc("dq_home"), rpc("dq_stats"), rpc("dq_leaderboard", { p_period: "today" }),
+    me.is_admin ? rpc("dq_admin_status").catch(() => null) : null]);
   clockOffset = Date.parse(home.now) - Date.now();
   const today = home.today;
   const t = home.days.find((d) => d.day === today);
@@ -455,6 +456,7 @@ async function renderHome() {
   shell("home", `
     ${brandHeader(`<span class="hello">Hi, ${esc(me.full_name.split(" ")[0])} 👋</span>`)}
     ${card}
+    ${adminBanner(adminStatus)}
     ${pushCard}
     <div class="stats">
       <div class="stat fire"><b>🔥 ${stats.streak}</b><small>Day streak</small></div>
@@ -697,6 +699,7 @@ async function renderReview(day) {
           <div class="opts">${t.options.map((o, k) => `
             <div class="opt ${k === q.correct ? "right" : k === q.yours ? "wrong" : "dim"}"><span class="l">${LETTERS[k]}</span><span>${fmt(o)}</span></div>`).join("")}</div>
           ${t.explain ? `<div class="method"><b>Method:</b> ${fmt(t.explain)}</div>` : ""}
+          <button class="link report-link" data-report="${q.id}" data-n="${i + 1}">${reported.has(q.id) ? "✓ Reported. Thanks!" : "⚑ Report a mistake"}</button>
         </div>`;
       }).join("")}</div>`);
 
@@ -713,6 +716,7 @@ async function renderReview(day) {
     $$("#filter button").forEach((b) => b.onclick = () => { filter = b.dataset.f; applyFilter(); });
     applyFilter();
     bindLangSwitch(draw);
+    $("[data-report]").forEach((b) => b.onclick = () => openReport(b.dataset.report, b.dataset.n, () => draw()));
     window.scrollTo(0, y);
   };
   draw();
@@ -874,3 +878,42 @@ if ("serviceWorker" in navigator) {
     location.reload();
   });
 }
+
+// ==========================================================
+// Report a mistake (students) + admin schedule banner
+// ==========================================================
+const reported = new Set();
+const REPORT_REASONS = ["Wrong answer", "Typo / wording", "Unclear question", "Translation issue", "Other"];
+
+function openReport(qid, n, done) {
+  const { el, close } = sheet(`<form class="form" id="rf"><h3>Report Q${esc(n)}</h3>
+    <p class="muted" style="margin-bottom:12px">Found a mistake? Sithum De Zoysa will check it. If an answer is corrected, everyone is re-marked automatically.</p>
+    <div class="chips-pick">${REPORT_REASONS.map((r, i) => `<label><input type="radio" name="reason" value="${esc(r)}" ${i === 0 ? "checked" : ""}><span>${esc(r)}</span></label>`).join("")}</div>
+    <label style="margin-top:12px">Details (optional)<textarea name="msg" rows="3" maxlength="500" placeholder="e.g. I think the answer should be 3 because…"></textarea></label>
+    <p class="err" id="re"></p>
+    <div class="sheet-btns"><button type="button" class="btn btn-ghost" id="rc">Cancel</button><button class="btn btn-primary">Send report</button></div></form>`);
+  $("#rc", el).onclick = close;
+  $("#rf", el).onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const { error } = await sb.rpc("dq_report", { p_question: qid, p_reason: f.reason.value, p_message: f.msg.value.trim() });
+    if (error) { $("#re", el).textContent = error.message; return; }
+    reported.add(qid);
+    close();
+    toast("Thanks! Sithum will check it.");
+    done?.();
+  };
+}
+
+function adminBanner(st) {
+  if (!st) return "";
+  const parts = [];
+  if (!st.tomorrow_count) {
+    parts.push(`⚠️ <b>No quiz scheduled for tomorrow.</b> Ask Claude to add it.`);
+  } else if (st.days_ahead < 3) {
+    parts.push(`📅 Only <b>${st.days_ahead} day${st.days_ahead === 1 ? "" : "s"}</b> scheduled ahead. Next empty day: <b>${esc(niceDay(st.next_empty_day))}</b>.`);
+  }
+  if (st.open_reports) parts.push(`⚑ <b>${st.open_reports}</b> question report${st.open_reports === 1 ? "" : "s"} to check. <a class="link" href="#admin/reports">Open</a>`);
+  return parts.length ? `<div class="banner admin-banner">${parts.join("<br>")}</div>` : "";
+}
+export { adminBanner };

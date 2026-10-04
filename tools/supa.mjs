@@ -69,12 +69,39 @@ else if (cmd === "test-push") {
   const res = await fetch(`${URL_}/functions/v1/daily-push`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-cron-secret": env.CRON_SECRET },
-    body: JSON.stringify({ kind: rest[0] === "morning" || rest[0] === "evening" ? rest[0] : "custom",
+    body: JSON.stringify({ kind: ["morning", "evening", "admin_alert"].includes(rest[0]) ? rest[0] : "custom",
       title: rest[0] || "Test from Physics Daily", body: rest[1] || "Notifications are working 🎉" })
   });
   console.log(res.status, await res.text());
 }
 
+else if (cmd === "smtp-setup") {
+  // Send login / password emails through Brevo (free: 300/day) instead of Supabase's 2-per-hour test mailer
+  need("BREVO_SMTP_LOGIN"); need("BREVO_SMTP_KEY"); need("SENDER_EMAIL");
+  const appUrl = "https://sithum02.github.io/physics-daily/";
+  const mail = (heading, text, button) => `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;color:#0f172a">
+    <h2 style="margin:0 0 4px">Physics Daily</h2><p style="margin:0 0 20px;color:#55607a">සත්කාර · by <b>Sithum De Zoysa</b></p>
+    <h3 style="margin:0 0 8px">${heading}</h3><p style="color:#334155;line-height:1.6">${text}</p>
+    <p style="margin:24px 0"><a href="{{ .ConfirmationURL }}" style="background:#ffc53d;color:#1a1300;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:bold">${button}</a></p>
+    <p style="color:#8a93ab;font-size:12px">If you didn't ask for this, you can ignore this email.<br>Physics Daily · ${appUrl}</p></div>`;
+  const res = await fetch(`https://api.supabase.com/v1/projects/${REF}/config/auth`, {
+    method: "PATCH", headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      smtp_host: "smtp-relay.brevo.com", smtp_port: "587",
+      smtp_user: env.BREVO_SMTP_LOGIN, smtp_pass: env.BREVO_SMTP_KEY,
+      smtp_admin_email: env.SENDER_EMAIL, smtp_sender_name: "Physics Daily · Sithum De Zoysa",
+      rate_limit_email_sent: 100,
+      mailer_subjects_recovery: "Reset your Physics Daily password",
+      mailer_templates_recovery_content: mail("Reset your password", "Tap the button below to choose a new password for your Physics Daily account.", "Set a new password"),
+      mailer_subjects_confirmation: "Confirm your Physics Daily account",
+      mailer_templates_confirmation_content: mail("Welcome! 🎉", "Tap the button below to confirm your email and start your daily A/L Physics quizzes.", "Confirm my email")
+    })
+  });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) { console.log("✗", res.status, JSON.stringify(out).slice(0, 300)); process.exit(1); }
+  console.log(`✓ emails now sent via Brevo from ${out.smtp_admin_email} (limit ${out.rate_limit_email_sent}/hour)`);
+}
+
 else {
-  console.log("Commands: sql <file> | push-setup | test-push [title] [body]");
+  console.log("Commands: sql <file> | push-setup | test-push [title|morning|evening|admin_alert] [body] | smtp-setup");
 }
