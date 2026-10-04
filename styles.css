@@ -172,8 +172,9 @@ sup, sub { font-size: .7em; }
 .toast {
   position: fixed; left: 50%; bottom: calc(20px + var(--safe-bottom)); transform: translate(-50%, 140px);
   background: var(--surface-2); border: 1px solid var(--line); padding: 12px 18px; border-radius: 14px;
-  font-size: 14px; transition: transform .3s ease; z-index: 50; max-width: calc(100% - 32px); text-align: center;
+  font-size: 14px; transition: transform .3s ease, opacity .3s ease, visibility .3s; z-index: 50; max-width: calc(100% - 32px); text-align: center;
+  opacity: 0; visibility: hidden; /* fully hidden when idle: on pages with the tab bar it sits higher, and a sliver used to peek out */
 }
-.toast.show { transform: translate(-50%, 0); }
+.toast.show { transform: translate(-50%, 0); opacity: 1; visibility: visible; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
