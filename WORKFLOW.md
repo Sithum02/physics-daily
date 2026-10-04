@@ -113,6 +113,13 @@ node tools/supa.mjs sql supabase/daily.sql
 - Redeploy after editing the function or schedule: `node tools/supa.mjs push-setup`
 - Test: `node tools/supa.mjs test-push "Title" "Body"` (or `morning` / `evening`).
 
+### 6b. Backups
+
+`content/` is its own git repo → **private** GitHub `Sithum02/physics-daily-content` (questions with answers,
+glossary, `backups/latest/*.json` database export incl. NICs — must stay private). `publish.mjs` automatically
+backs up the database (at most once per 20 h) and commits + pushes `content/` after every run.
+Manual: `node tools/backup.mjs`.
+
 ### 7. Keys (tools/.env)
 
 `SUPABASE_SERVICE_KEY` is a new-style `sb_secret_` key (goes in the `apikey` header only).
