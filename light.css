@@ -1,0 +1,79 @@
+/* ==========================================================
+   White theme (matches the "Clean White" poster).
+   Loaded after styles.css + app.css; remove this file's <link> to go back to dark.
+   ========================================================== */
+:root {
+  --bg: #f5f7fc;
+  --bg-2: #eef2f9;
+  --surface: #ffffff;
+  --surface-2: #eef2f9;
+  --line: #e2e7f1;
+  --text: #0f172a;
+  --muted: #55607a;
+  --accent: #ffc53d;        /* amber fills (buttons, selected) */
+  --accent-ink: #1a1300;
+  --accent-text: #b86e00;   /* amber used as text on white */
+  --accent-2: #2563eb;      /* royal blue */
+  --good: #16a34a;
+  --bad: #dc2626;
+  --shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 10px 26px -18px rgba(15, 23, 42, .22);
+}
+
+/* Cards lift off the page with a soft shadow instead of dark borders */
+.card, .qcard, .day, .stat, .tile, .item, .hero, .video-card, .course-card { box-shadow: var(--shadow); }
+
+/* Amber as text needs the darker shade to be readable on white */
+.stat.fire b, .pill.mid, .warn-text, .tabbar a.on, .my-rank b, .lang-note, .hero-score b small { color: var(--accent-text); }
+.avatar { color: var(--accent-text); border-color: var(--accent); background: #fff8e6; }
+
+/* Tinted pills */
+.pill { background: var(--bg-2); }
+.pill.new { background: rgba(37, 99, 235, .1); }
+.pill.good { background: rgba(22, 163, 74, .12); }
+.pill.mid { background: rgba(245, 158, 11, .16); }
+.pill.low { background: rgba(220, 38, 38, .1); }
+
+/* Home hero */
+.hero { background: linear-gradient(135deg, #ffffff, #f1f5ff 60%, #fff7e3); border-color: var(--line); }
+.hero::after { background: radial-gradient(circle, rgba(255, 197, 61, .35), transparent 70%); }
+.hero .bar { background: rgba(15, 23, 42, .08); }
+
+/* Quiz */
+.opt { background: #f8fafd; }
+.opt.picked { background: rgba(255, 197, 61, .18); }
+.opt.right { background: rgba(22, 163, 74, .08); }
+.opt.right .l, .opt.wrong .l { color: #ffffff; }
+.opt.wrong { background: rgba(220, 38, 38, .07); }
+.qn.done, .qn.done.cur { color: #ffffff; }
+.timer { background: #ffffff; }
+
+/* Progress / leaderboard */
+.tile.big { background: linear-gradient(135deg, #eef4ff, #ffffff); }
+.my-rank { background: linear-gradient(135deg, #fff8e6, #ffffff); }
+.rank-row.me { background: rgba(255, 197, 61, .14); }
+.seg > .on, .lang-seg button:not(.on):hover { background: #ffffff; box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+.chart-tip { background: #ffffff; box-shadow: var(--shadow); }
+
+/* Bars and overlays */
+.tabbar { background: rgba(255, 255, 255, .96); box-shadow: 0 -6px 20px -14px rgba(15, 23, 42, .25); }
+.sheet-backdrop { background: rgba(15, 23, 42, .45); }
+.toast { background: #0f172a; color: #ffffff; border-color: #0f172a; }
+.banner.bad { background: rgba(220, 38, 38, .08); border-color: rgba(220, 38, 38, .35); }
+.qimg { box-shadow: 0 0 0 1px var(--line); }
+
+/* Sithum De Zoysa signature (kept small and quiet) */
+.footer b, .sig-line b { color: var(--text); font-weight: 600; }
+.footer [lang="si"], .si-brand { font-family: "Noto Sans Sinhala", sans-serif; font-weight: 700; color: var(--accent-text); }
+.sig-line { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.brand small { letter-spacing: .02em; text-transform: none; font-size: 12.5px; }
+
+/* Report a mistake + admin banner */
+.report-link { display: block; margin: 10px 0 0 auto; font-size: 12.5px; color: var(--muted); }
+.report-link:hover { color: var(--bad); }
+.chips-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips-pick label { margin: 0; display: inline-flex; }
+.chips-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.chips-pick span { padding: 8px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--bg-2); font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.chips-pick input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.form textarea { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg-2); color: var(--text); font: inherit; font-size: 16px; resize: vertical; }
+.admin-banner { background: #fff8e6; border: 1px solid #f3cf7f; color: var(--text); line-height: 1.6; }

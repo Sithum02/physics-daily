@@ -1,0 +1,19 @@
+node_modules/
+.DS_Store
+Thumbs.db
+_test.html
+
+# Private: question files contain the answers, and .env has the secret key
+content/
+tools/.env
+
+# PDFs for sharing (kept out of the public repo)
+guides/
+
+# Past papers / resource books: private, never published
+resources/
+
+# Database code, tools and instructions: private (mirrored into the private content repo by publish.mjs)
+supabase/
+tools/
+WORKFLOW.md

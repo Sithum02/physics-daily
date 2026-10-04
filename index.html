@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Physics Daily · Sithum De Zoysa</title>
+  <meta name="description" content="New A/L Physics MCQs every day, with answers and methods. By Sithum De Zoysa.">
+  <meta name="theme-color" content="#f5f7fc">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Physics Daily">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+Sinhala:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="light.css">
+  <style>
+    /* Opening screen — inline so it shows instantly. Stays at least ~1.5 s (see hideSplash in js/app.js). */
+    #splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; text-align: center;
+      background: radial-gradient(420px 360px at 85% 12%, rgba(37,99,235,.10), transparent 70%),
+                  radial-gradient(420px 360px at 10% 90%, rgba(245,158,11,.14), transparent 70%), #ffffff;
+      transition: opacity .45s ease, transform .45s ease; font-family: "Inter", "Noto Sans Sinhala", system-ui, sans-serif; color: #0f172a; }
+    #splash.out { opacity: 0; transform: scale(1.03); pointer-events: none; }
+    .sp-atom { width: 116px; height: 116px; margin: 0 auto 22px; display: block; }
+    .sp-atom .o { transform-origin: 256px 256px; animation: sp-spin 6s linear infinite; }
+    .sp-atom .o2 { animation-duration: 8s; animation-direction: reverse; }
+    .sp-atom .o3 { animation-duration: 10s; }
+    .sp-atom .n { transform-origin: 256px 256px; animation: sp-pulse 1.6s ease-in-out infinite; }
+    .sp-name { font-family: "Noto Sans Sinhala", sans-serif; font-weight: 700; font-size: 52px; line-height: 1.6; letter-spacing: .01em;
+      padding: .18em .12em .06em; margin-top: -.18em; /* room for marks above the letters (e.g. ් ), so the gradient never clips them */
+      background: linear-gradient(90deg, #d97706, #f59e0b 40%, #2563eb); -webkit-background-clip: text; background-clip: text; color: transparent;
+      opacity: 0; animation: sp-up .6s ease .1s forwards; }
+    .sp-by { margin-top: 10px; font-size: 17px; color: #55607a; opacity: 0; animation: sp-up .6s ease .35s forwards; }
+    .sp-by b { color: #0f172a; font-weight: 700; }
+    .sp-sub { margin-top: 18px; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: #2563eb; font-weight: 600; opacity: 0; animation: sp-up .6s ease .55s forwards; }
+    .sp-foot { position: absolute; left: 0; right: 0; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); font-size: 12px; color: #8a93ab; }
+    @keyframes sp-spin { to { transform: rotate(360deg); } }
+    @keyframes sp-pulse { 50% { transform: scale(1.12); } }
+    @keyframes sp-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .sp-atom .o, .sp-atom .n { animation: none; } .sp-name, .sp-by, .sp-sub { animation-duration: .01s; } }
+  </style>
+</head>
+<body>
+  <div id="splash" role="img" aria-label="Sathkaara by Sithum De Zoysa">
+    <div>
+      <svg class="sp-atom" viewBox="0 0 512 512" aria-hidden="true">
+        <g fill="none" stroke-width="20">
+          <g class="o"><ellipse cx="256" cy="256" rx="190" ry="70" stroke="#2563eb"/><circle cx="446" cy="256" r="20" fill="#2563eb" stroke="none"/></g>
+          <g class="o o2"><ellipse cx="256" cy="256" rx="190" ry="70" stroke="#f59e0b" transform="rotate(60 256 256)"/></g>
+          <g class="o o3"><ellipse cx="256" cy="256" rx="190" ry="70" stroke="#0f172a" transform="rotate(-60 256 256)"/></g>
+        </g>
+        <circle class="n" cx="256" cy="256" r="38" fill="#ffc53d"/>
+      </svg>
+      <div class="sp-name" lang="si">සත්කාර</div>
+      <div class="sp-by">by <b>Sithum De Zoysa</b></div>
+      <div class="sp-sub">A/L Physics · Physics Daily</div>
+    </div>
+    <div class="sp-foot">English · සිංහල · தமிழ்</div>
+  </div>
+  <div id="app"></div>
+  <div class="toast" id="toast" role="status"></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
