@@ -1,11 +1,11 @@
 // ==========================================================
 // Admin screens (only loaded for admins; the database also enforces this)
 //   #admin / #admin/students    student list
-//   #admin/days                 all days
-//   #admin/s/<id>               one student
-//   #admin/d/<day>              rank sheet + question analysis
+//   #admin/days/<subj>          all days of a subject (phy | chem)
+//   #admin/s/<id>/<subj>        one student
+//   #admin/d/<subj>/<day>       rank sheet + question analysis   (old: #admin/d/<day> = Physics)
 // ==========================================================
-import { $, $$, esc, fmt, fmtTime, niceDay, pctClass, toast, sheet, confirmBox, lineChart, barList, LETTERS, SERIES } from "./ui.js";
+import { $, $$, esc, fmt, fmtTime, niceDay, pctClass, toast, sheet, confirmBox, lineChart, barList, LETTERS, SUBJECTS, SUBJECT_KEYS, isSubject } from "./ui.js";
 
 let ctx;
 const rpc = async (name, args) => {
@@ -14,19 +14,26 @@ const rpc = async (name, args) => {
   return data;
 };
 
+let subj = "phy";   // subject shown on the Sheets / day / student screens
 export async function renderAdmin(c) {
   ctx = c;
   const { a, b } = c;
-  if (a === "s" && b) return student(b);
-  if (a === "d" && b) return daySheet(b);
-  if (a === "days") return days();
+  const pick = (x) => (isSubject(x) ? x : subj);
+  ctx.neutralTheme();
+  if (a === "s" && b) return student(b, pick(c.c));
+  if (a === "d" && b) return isSubject(b) ? daySheet(b, c.c) : daySheet("phy", b);
+  if (a === "days") return days(pick(b));
   if (a === "notify") return notify();
   if (a === "reports") return reports(b || "open");
   return students();
 }
 
+// Physics | Chemistry switch for admin screens
+const subjSeg = (on, href) => `<div class="subj-seg">${SUBJECT_KEYS.map((k) => `<a class="${k} ${k === on ? "on" : ""}" href="${href(k)}">
+  <img src="${SUBJECTS[k].icon}" alt="">${SUBJECTS[k].name}</a>`).join("")}</div>`;
+
 const seg = (on) => `<div class="seg"><a href="#admin/students" class="${on === "students" ? "on" : ""}">Students</a>
-  <a href="#admin/days" class="${on === "days" ? "on" : ""}">Sheets</a>
+  <a href="#admin/days/${subj}" class="${on === "days" ? "on" : ""}">Sheets</a>
   <a href="#admin/reports" class="${on === "reports" ? "on" : ""}">Reports</a>
   <a href="#admin/notify" class="${on === "notify" ? "on" : ""}">Notify</a></div>`;
 
@@ -38,10 +45,10 @@ async function reports(status) {
   ctx.shell("admin", `
     <h1 class="page-title">Admin</h1>${seg("reports")}
     <div class="seg">${tabs.map(([k, l]) => `<a href="#admin/reports/${k}" class="${k === status ? "on" : ""}">${l}</a>`).join("")}</div>
-    ${status === "open" ? `<p class="hint" style="margin:-4px 0 12px">To correct a question, tell Claude, e.g. <i>"Q3 on 4 Oct: the answer should be 2"</i>. Everyone is re-marked automatically. Then mark the report <b>Fixed</b>.</p>` : ""}
+    ${status === "open" ? `<p class="hint" style="margin:-4px 0 12px">To correct a question, tell Claude, e.g. <i>"Chemistry Q3 on 4 Oct: the answer should be 2"</i>. Everyone is re-marked automatically. Then mark the report <b>Fixed</b>.</p>` : ""}
     ${list.length ? list.map((r) => `
       <div class="qcard" style="margin-bottom:12px">
-        <div class="qmeta"><span class="n">${esc(niceDay(r.day))} · Q${r.position}</span><span class="pill low">${esc(r.reason || "Report")}</span></div>
+        <div class="qmeta"><span class="n">${SUBJECTS[r.subject || "phy"].name} · ${esc(niceDay(r.day))} · Q${r.position}</span><span class="pill low">${esc(r.reason || "Report")}</span></div>
         <div class="qtext sm" style="margin-bottom:8px">${fmt(r.body)}</div>
         <p class="hint" style="margin:0 0 8px">Correct answer now: <b>${r.correct_index == null ? "—" : `${LETTERS[r.correct_index]}. ${fmt(r.options[r.correct_index])}`}</b></p>
         ${r.message ? `<div class="method">“${esc(r.message)}”</div>` : ""}
@@ -66,7 +73,7 @@ async function notify() {
   ctx.shell("admin", `
     <h1 class="page-title">Admin</h1>${seg("notify")}
     <div class="tiles"><div class="tile big"><small>Students with reminders on</small><b>${count}</b>
-      <em>Automatic: 6:00 am when the quiz opens · 8:00 pm to anyone who hasn't done it</em></div></div>
+      <em>Automatic, for each subject: 6:00 am when the quiz opens · 8:00 pm to anyone who hasn't done it</em></div></div>
     <form class="card form" id="nf">
       <h3>Send a message now</h3>
       <label>Title<input name="t" maxlength="80" required placeholder="e.g. New paper class this Saturday!"></label>
@@ -100,12 +107,13 @@ function csv(name, head, rows) {
 // ---------- Students ----------
 async function students() {
   ctx.shell("admin", `<h1 class="page-title">Admin</h1>${seg("students")}<div class="spinner"></div>`);
-  const [list, st] = await Promise.all([rpc("dq_admin_students"), rpc("dq_admin_status").catch(() => null)]);
+  const [list, ...sts] = await Promise.all([rpc("dq_admin_students"),
+    ...SUBJECT_KEYS.map((k) => rpc("dq_admin_status", { p_subject: k }).catch(() => null))]);
   const active7 = list.filter((s) => s.last_day && Date.parse(s.last_day) > Date.now() - 7 * 864e5).length;
 
   ctx.shell("admin", `
     <h1 class="page-title">Admin</h1>${seg("students")}
-    ${ctx.adminBanner ? ctx.adminBanner(st) : ""}
+    ${ctx.adminBanner ? sts.map((st) => ctx.adminBanner(st)).join("") : ""}
     <div class="tiles">
       <div class="tile"><small>Students</small><b>${list.length}</b></div>
       <div class="tile"><small>Active (7 days)</small><b>${active7}</b></div>
@@ -133,7 +141,7 @@ async function students() {
       return `<a class="stu-row" href="#admin/s/${s.id}">
         <span class="who"><b>${esc(s.full_name || "(no name)")} ${s.is_banned ? '<span class="pill low">Banned</span>' : ""}</b>
           <small>${esc(s.nic || "No NIC")} · ${esc(s.school || "—")}</small></span>
-        <span class="sc"><b>${s.quizzes}</b><small>quizzes</small></span>
+        <span class="sc"><b>${s.quizzes_phy ?? s.quizzes}<small class="muted"> · ${s.quizzes_chem ?? 0}</small></b><small>Phy · Chem</small></span>
         <span class="sc"><b>${p == null ? "—" : p + "%"}</b><small>score</small></span></a>`;
     }).join("") || `<p class="muted" style="padding:16px">No students found.</p>`;
   };
@@ -141,15 +149,16 @@ async function students() {
   $("#f").onchange = draw;
   draw();
   $("#csv").onclick = () => csv("students.csv",
-    ["Name", "NIC", "Email", "Phone", "School", "District", "A/L year", "Quizzes", "Correct", "Questions", "Banned", "Joined"],
-    shown.map((s) => [s.full_name, s.nic, s.email, s.phone, s.school, s.district, s.exam_year, s.quizzes, s.correct, s.questions,
+    ["Name", "NIC", "Email", "Phone", "School", "District", "A/L year", "Physics quizzes", "Chemistry quizzes", "Correct", "Questions", "Banned", "Joined"],
+    shown.map((s) => [s.full_name, s.nic, s.email, s.phone, s.school, s.district, s.exam_year, s.quizzes_phy, s.quizzes_chem, s.correct, s.questions,
       s.is_banned ? "yes" : "", s.created_at?.slice(0, 10)]));
 }
 
 // ---------- One student ----------
-async function student(id) {
+async function student(id, sj) {
+  subj = sj;
   ctx.shell("admin", `<div class="spinner"></div>`);
-  const [list, stats] = await Promise.all([rpc("dq_admin_students"), rpc("dq_stats", { p_user: id })]);
+  const [list, stats] = await Promise.all([rpc("dq_admin_students"), rpc("dq_stats", { p_user: id, p_subject: sj })]);
   const s = list.find((x) => x.id === id);
   if (!s) { ctx.shell("admin", `<div class="empty">Student not found.</div>`); return; }
   const wa = String(s.phone || "").replace(/\D/g, "").replace(/^0/, "94");
@@ -175,6 +184,7 @@ async function student(id) {
         <button class="btn ${s.is_banned ? "btn-ghost" : "btn-danger-solid"} btn-sm" id="ban">${s.is_banned ? "Unban" : "Ban"}</button>
       </div>
     </div>
+    ${subjSeg(sj, (k) => `#admin/s/${id}/${k}`)}
     <div class="tiles">
       <div class="tile big"><small>Correct / answered</small><b>${stats.correct}<span>/${stats.answered}</span></b><em>${acc == null ? "—" : acc + "% accuracy"}</em></div>
       <div class="tile"><small>Quizzes</small><b>${stats.quizzes}<span>/${stats.days_released}</span></b></div>
@@ -186,14 +196,14 @@ async function student(id) {
     <h2 class="section-title">History</h2>
     ${h.length ? `<div class="days">${[...h].reverse().map((d) => {
       const p = Math.round((d.score / d.total) * 100);
-      return `<a class="day" href="#admin/d/${d.day}">
+      return `<a class="day" href="#admin/d/${sj}/${d.day}">
         <span class="info"><b>${esc(niceDay(d.day))} · ${esc(d.title || "")}</b><small>Rank #${d.rank} of ${d.participants} · ${fmtTime(d.time_taken)}</small></span>
         <span class="pill ${pctClass(p)}">${d.score}/${d.total}</span></a>`;
     }).join("")}</div>` : `<div class="empty">No quizzes yet.</div>`}`);
 
   lineChart($("#chart"), h.map((d) => niceDay(d.day, { day: "numeric", month: "short" })), [
-    { name: s.full_name, color: SERIES.you, values: h.map((d) => (d.total ? (d.score / d.total) * 100 : null)) },
-    { name: "Class average", color: SERIES.avg, values: h.map((d) => (d.avg_pct == null ? null : +d.avg_pct)) }
+    { name: s.full_name, color: SUBJECTS[sj].series.you, values: h.map((d) => (d.total ? (d.score / d.total) * 100 : null)) },
+    { name: "Class average", color: SUBJECTS[sj].series.avg, values: h.map((d) => (d.avg_pct == null ? null : +d.avg_pct)) }
   ]);
 
   $("#ban").onclick = async () => {
@@ -213,7 +223,7 @@ async function student(id) {
       }; });
     }
     toast("Saved.");
-    student(id);
+    student(id, sj);
   };
   $("#nic").onclick = () => {
     const { el, close } = sheet(`<form class="form" id="nf"><h3>Edit NIC</h3>
@@ -225,35 +235,38 @@ async function student(id) {
       e.preventDefault();
       try { await rpc("dq_admin_set_nic", { p_user: id, p_nic: e.target.nic.value }); }
       catch (err) { $("#ne", el).textContent = err.message; return; }
-      close(); toast("NIC saved."); student(id);
+      close(); toast("NIC saved."); student(id, sj);
     };
   };
 }
 
 // ---------- Days ----------
-async function days() {
+async function days(sj) {
+  subj = sj;
   ctx.shell("admin", `<h1 class="page-title">Admin</h1>${seg("days")}<div class="spinner"></div>`);
-  const list = await rpc("dq_admin_days");
+  const list = await rpc("dq_admin_days", { p_subject: sj });
   const t = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
   ctx.shell("admin", `
     <h1 class="page-title">Admin</h1>${seg("days")}
+    ${subjSeg(sj, (k) => `#admin/days/${k}`)}
     ${list.length ? `<div class="days">${list.map((d) => `
-      <a class="day" href="#admin/d/${d.day}">
+      <a class="day" href="#admin/d/${sj}/${d.day}">
         <span class="info"><b>${esc(niceDay(d.day))} · ${esc(d.title || "")}</b>
           <small>${d.count} questions · ${d.participants} took it${d.avg_pct != null ? ` · avg ${Math.round(d.avg_pct)}%` : ""}</small></span>
         ${d.day > t ? `<span class="pill new">Scheduled</span>` : d.day === t ? `<span class="pill mid">Today</span>` : `<span class="pill">${d.participants}</span>`}
       </a>`).join("")}</div>` : `<div class="empty">No days published yet.</div>`}`);
 }
 
-async function daySheet(day) {
+async function daySheet(sj, day) {
+  subj = sj;
   ctx.shell("admin", `<div class="spinner"></div>`);
-  const d = await rpc("dq_admin_day", { p_day: day });
+  const d = await rpc("dq_admin_day", { p_day: day, p_subject: sj });
   const n = d.rows.length;
   const avg = n ? d.rows.reduce((s, r) => s + r.score / r.total, 0) / n * 100 : null;
 
   ctx.shell("admin", `
-    <div class="qtop plain"><div class="qtop-row"><a class="back" href="#admin/days">←</a>
-      <div class="qtop-title"><b>${esc(d.title || "Daily MCQs")}</b><small>${esc(niceDay(day))}</small></div>
+    <div class="qtop plain"><div class="qtop-row"><a class="back" href="#admin/days/${sj}">←</a>
+      <div class="qtop-title"><b>${esc(d.title || "Daily MCQs")}</b><small>${SUBJECTS[sj].name} · ${esc(niceDay(day))}</small></div>
       <button class="btn btn-ghost btn-sm" id="csv">CSV</button></div></div>
     <div class="tiles">
       <div class="tile"><small>Took it</small><b>${n}</b>${d.in_progress ? `<em>${d.in_progress} writing now</em>` : ""}</div>
@@ -263,7 +276,7 @@ async function daySheet(day) {
     <div id="sheet">${n ? `<div class="card list-card">${d.rows.map((r) => `
       <div class="rank-row">
         <span class="rk">${r.rank <= 3 ? ["🥇", "🥈", "🥉"][r.rank - 1] : "#" + r.rank}</span>
-        <a class="who" href="#admin/s/${r.student_id}"><b>${esc(r.name)} ${r.is_banned ? '<span class="pill low">Banned</span>' : ""}</b>
+        <a class="who" href="#admin/s/${r.student_id}/${sj}"><b>${esc(r.name)} ${r.is_banned ? '<span class="pill low">Banned</span>' : ""}</b>
           <small>${esc(r.nic || "No NIC")} · ${esc(r.school || "")}</small></a>
         <span class="sc"><b>${r.score}/${r.total}</b><small>${Math.round((r.score / r.total) * 100)}%</small></span>
         <span class="tm"><b>${fmtTime(r.time_taken)}</b><small><button class="link tiny" data-reset="${r.attempt_id}" data-name="${esc(r.name)}">reset</button></small></span>
@@ -288,12 +301,12 @@ async function daySheet(day) {
     $("#sheet").classList.toggle("hidden", btn.dataset.t !== "sheet");
     $("#qa").classList.toggle("hidden", btn.dataset.t !== "qa");
   });
-  $("#csv").onclick = () => csv(`rank-sheet-${day}.csv`, ["Rank", "Name", "NIC", "School", "Phone", "Score", "Total", "Time (s)", "Submitted"],
+  $("#csv").onclick = () => csv(`rank-sheet-${sj}-${day}.csv`, ["Rank", "Name", "NIC", "School", "Phone", "Score", "Total", "Time (s)", "Submitted"],
     d.rows.map((r) => [r.rank, r.name, r.nic, r.school, r.phone, r.score, r.total, r.time_taken, r.submitted_at]));
   $$("[data-reset]").forEach((btn) => btn.onclick = async () => {
     if (!(await confirmBox("Reset attempt?", `${esc(btn.dataset.name)}'s mark for this day is deleted. They can only retake it if it's still today.`, "Reset", true))) return;
     await rpc("dq_admin_reset", { p_attempt: btn.dataset.reset });
     toast("Attempt reset.");
-    daySheet(day);
+    daySheet(sj, day);
   });
 }

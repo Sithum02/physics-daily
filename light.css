@@ -77,3 +77,82 @@
 .chips-pick input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .form textarea { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg-2); color: var(--text); font: inherit; font-size: 16px; resize: vertical; }
 .admin-banner { background: #fff8e6; border: 1px solid #f3cf7f; color: var(--text); line-height: 1.6; }
+
+/* ==========================================================
+   Subjects: Physics (default amber + blue) · Chemistry (emerald + violet)
+   ========================================================== */
+body[data-subject="chem"] { --accent: #34d399; --accent-ink: #022c1e; --accent-text: #047857; --accent-2: #7c3aed; }
+body[data-subject="chem"] .hero { background: linear-gradient(135deg, #ffffff, #effdf6 60%, #f4efff); }
+body[data-subject="chem"] .hero::after { background: radial-gradient(circle, rgba(52, 211, 153, .35), transparent 70%); }
+body[data-subject="chem"] .opt.picked { background: rgba(52, 211, 153, .16); }
+body[data-subject="chem"] .rank-row.me { background: rgba(52, 211, 153, .14); }
+body[data-subject="chem"] .my-rank { background: linear-gradient(135deg, #ecfdf5, #ffffff); }
+body[data-subject="chem"] .tile.big { background: linear-gradient(135deg, #f1ebff, #ffffff); }
+body[data-subject="chem"] .pill.mid { background: rgba(52, 211, 153, .16); }
+body[data-subject="chem"] .avatar { background: #ecfdf5; }
+.brand img { box-shadow: 0 0 0 1px var(--line); }
+
+/* "Subjects" button in subject headers */
+.subj-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 99px; border: 1px solid var(--line);
+  background: #fff; font-size: 13px; font-weight: 600; color: var(--text); box-shadow: var(--shadow); white-space: nowrap; }
+.subj-chip svg { width: 15px; height: 15px; }
+
+/* Physics | Chemistry switch (Ranks, Progress, Admin) */
+.subj-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.subj-seg a { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-radius: 14px; border: 1.5px solid var(--line);
+  background: #fff; font-weight: 600; font-size: 14px; color: var(--muted); }
+.subj-seg a img { width: 22px; height: 22px; border-radius: 6px; }
+.subj-seg a.on.phy { border-color: #2563eb; color: #1e3a8a; background: #eef4ff; }
+.subj-seg a.on.chem { border-color: #10b981; color: #065f46; background: #ecfdf5; }
+
+/* Subject picker */
+.si-title { font-family: "Noto Sans Sinhala", sans-serif; font-weight: 700; line-height: 1.6; padding-top: .1em; }
+.hub-brand { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.hub-brand .si { font-family: "Noto Sans Sinhala", sans-serif; font-weight: 700; font-size: 30px; line-height: 1.55; padding-top: .12em;
+  color: #b86e00; } /* solid colour: gradients clip Sinhala marks */
+.hub-brand small { display: block; color: var(--muted); font-size: 12.5px; margin-top: -4px; }
+.hub-brand small b { color: var(--text); }
+.hub-q { font-family: var(--font-head); font-size: 22px; margin: 4px 0 14px; }
+.subj { position: relative; overflow: hidden; border-radius: 22px; padding: 18px; margin-bottom: 14px; border: 1.5px solid var(--line); background: #fff; box-shadow: var(--shadow); }
+.subj.phy { background: linear-gradient(135deg, #ffffff, #f1f5ff 55%, #fff7e3); border-color: #c7d6fb; }
+.subj.chem { background: linear-gradient(135deg, #ffffff, #ecfdf5 55%, #f4efff); border-color: #a7f0d2; }
+.subj::after { content: ""; position: absolute; right: -50px; top: -50px; width: 170px; height: 170px; border-radius: 50%; pointer-events: none; }
+.subj.phy::after { background: radial-gradient(circle, rgba(255, 197, 61, .35), transparent 70%); }
+.subj.chem::after { background: radial-gradient(circle, rgba(52, 211, 153, .35), transparent 70%); }
+.subj-top { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
+.subj-top img { width: 52px; height: 52px; border-radius: 14px; box-shadow: 0 0 0 1px var(--line); }
+.subj-top b { font-family: var(--font-head); font-size: 20px; display: block; line-height: 1.15; }
+.subj-top small { color: var(--muted); font-size: 13px; }
+.subj-streak { margin-left: auto; text-align: center; font-family: var(--font-head); font-weight: 700; font-size: 18px; line-height: 1.1; }
+.subj-streak small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 10.5px; color: var(--muted); }
+.subj.phy .subj-streak { color: #b86e00; } .subj.chem .subj-streak { color: #047857; }
+.subj-status { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .85); border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; position: relative; z-index: 1; }
+.subj-status b { font-size: 14.5px; display: block; }
+.subj-status small { color: var(--muted); font-size: 12.5px; } .subj-status small b { display: inline; font-size: inherit; color: var(--text); }
+.subj-status .btn { white-space: nowrap; flex: none; padding: 10px 16px; font-size: 14px; border-radius: 12px; }
+.btn-phy { background: #ffc53d; color: #1a1300; } .btn-chem { background: #34d399; color: #022c1e; }
+.badge-new { display: inline-block; vertical-align: 4px; margin-left: 6px; font-family: var(--font-body); font-size: 10px; font-weight: 700;
+  letter-spacing: .08em; padding: 3px 8px; border-radius: 99px; background: #7c3aed; color: #fff; }
+.both { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; background: #fff; border: 1px dashed #cbd5e1; margin-bottom: 8px; }
+.both .ic { font-size: 24px; }
+.both b { display: block; font-size: 14.5px; } .both small { color: var(--muted); font-size: 12.5px; }
+.both .dots2 { margin-left: auto; display: flex; gap: 6px; }
+.both .dots2 i { min-width: 30px; height: 26px; padding: 0 6px; border-radius: 8px; display: grid; place-items: center; font-style: normal; font-size: 12.5px; font-weight: 700;
+  border: 1px dashed #cbd5e1; color: var(--muted); }
+.both .dots2 i.phy.done { background: #fff3cf; color: #b86e00; border: 0; }
+.both .dots2 i.chem.done { background: #d1fae5; color: #047857; border: 0; }
+
+/* Profile: subject on/off switches */
+.subj-rows { display: grid; gap: 12px; }
+.subj-row { display: flex; align-items: center; gap: 12px; margin: 0; cursor: pointer; }
+.subj-row img { width: 38px; height: 38px; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); }
+.subj-row .t { flex: 1; } .subj-row .t b { display: block; font-size: 15px; } .subj-row .t small { color: var(--muted); font-size: 12.5px; }
+input.switch { appearance: none; -webkit-appearance: none; width: 48px; height: 28px; border-radius: 99px; background: #cbd5e1; position: relative; flex: none;
+  cursor: pointer; transition: background .2s; }
+input.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: left .2s; }
+input.switch:checked { background: #16a34a; } input.switch:checked::after { left: 23px; }
+
+/* Long day titles must shrink (with …) instead of widening the list */
+.days > * { min-width: 0; }

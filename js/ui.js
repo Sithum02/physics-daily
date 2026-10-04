@@ -8,6 +8,14 @@ export const LETTERS = ["1", "2", "3", "4", "5"];
 // Chart colours, validated for colour-blind separation on the dark surface
 export const SERIES = { you: "#d97706", avg: "#2563eb" };
 
+// Subjects (keys match the database). Each section has its own icon and colours (light.css: body[data-subject]).
+export const SUBJECTS = {
+  phy: { key: "phy", name: "Physics", app: "Physics Daily", icon: "icons/phy.svg", emoji: "🔬", series: { you: "#d97706", avg: "#2563eb" } },
+  chem: { key: "chem", name: "Chemistry", app: "Chemistry Daily", icon: "icons/chem.svg", emoji: "🧪", series: { you: "#047857", avg: "#7c3aed" } }
+};
+export const SUBJECT_KEYS = ["phy", "chem"];
+export const isSubject = (s) => SUBJECT_KEYS.includes(s);
+
 export const DISTRICTS = [
   "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", "Galle", "Gampaha", "Hambantota",
   "Jaffna", "Kalutara", "Kandy", "Kegalle", "Kilinochchi", "Kurunegala", "Mannar", "Matale",

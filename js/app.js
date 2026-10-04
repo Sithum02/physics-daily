@@ -1,16 +1,19 @@
 // ==========================================================
-// Physics Daily — Sithum De Zoysa
+// සත්කාර (Physics Daily + Chemistry Daily) — Sithum De Zoysa
 // Screens (URL hash):
 //   #login  #register  #newpass  #complete  #banned
-//   #home  #quiz/<day>  #review/<day>  #ranks/<period>  #progress  #profile
+//   #home (subject picker)  #s/<subj>  #quiz/<subj>/<day>  #review/<subj>/<day>
+//   #ranks/<subj>/<period>  #progress/<subj>  #profile
 //   #admin…  (admin only, see admin.js)
+// <subj> is "phy" or "chem". Old links without a subject (#quiz/<day> …) mean Physics.
 // All marking, timing and ranking happen in the database (supabase/daily.sql).
 // ==========================================================
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { SUPABASE_URL, SUPABASE_ANON_KEY, WHATSAPP_NUMBER, WHATSAPP_DISPLAY, VAPID_PUBLIC_KEY } from "./config.js";
 import {
   $, $$, esc, fmt, fmtTime, niceDay, addDays, pctClass, toast, sheet, confirmBox,
-  lineChart, barList, LETTERS, SERIES, DISTRICTS, normalizeNic, normalizePhone, maskNic
+  lineChart, barList, LETTERS, DISTRICTS, normalizeNic, normalizePhone, maskNic,
+  SUBJECTS, SUBJECT_KEYS, isSubject
 } from "./ui.js";
 
 const app = $("#app");
@@ -24,6 +27,21 @@ let recovering = false;   // password-reset link in progress
 let pendingError = "";   // message to show on the next form
 
 const PUBLIC = ["login", "register", "newpass"];
+
+// ---------- Subject sections ----------
+let subj = "phy";         // subject of the screen being shown
+function setSubject(s) {
+  subj = isSubject(s) ? s : "phy";
+  document.body.dataset.subject = subj;               // light.css switches the colours
+  try { localStorage.setItem("subj", subj); } catch { /* ignore */ }
+}
+function neutralTheme() { document.body.dataset.subject = ""; }
+function lastSubject() {
+  let s = null;
+  try { s = localStorage.getItem("subj"); } catch { /* ignore */ }
+  return isSubject(s) ? s : (mySubjects()[0] || "phy");
+}
+const mySubjects = () => SUBJECT_KEYS.filter((k) => !me?.subjects || me.subjects.includes(k));
 const serverNow = () => Date.now() + clockOffset;
 
 // ==========================================================
@@ -109,8 +127,8 @@ async function disablePush() {
 }
 
 const PUSH_TEXT = {
-  on: "On. You'll get a reminder at 6:00 am when the quiz opens, and at 8:00 pm if you haven't done it yet.",
-  off: "Get a reminder at 6:00 am when each day's quiz opens, and at 8:00 pm if you haven't done it yet.",
+  on: "On. You'll get a reminder at 6:00 am when each subject's quiz opens, and at 8:00 pm if you haven't done it yet.",
+  off: "Get a reminder at 6:00 am when each subject's quiz opens, and at 8:00 pm if you haven't done it yet.",
   install: "On iPhone, first add the app to your Home Screen: tap Share, then “Add to Home Screen”. Open it from there and turn reminders on.",
   denied: "Notifications are blocked for this app. Allow them in your phone's Settings, then come back here.",
   unsupported: "This browser can't show notifications. On Android use Chrome; on iPhone add the app to your Home Screen."
@@ -187,18 +205,21 @@ async function route() {
   if (!me.nic || !me.full_name || !me.school) { if (view !== "complete") return go("complete"); return renderComplete(); }
 
   try {
+    // Old links (#quiz/<day>, #ranks/<period>, #progress) are Physics
+    const isDay = (x) => /^\d{4}-\d{2}-\d{2}$/.test(x || "");
     switch (view) {
-      case "quiz": return await renderQuiz(a);
-      case "review": return await renderReview(a);
-      case "ranks": return await renderRanks(a || "today");
-      case "progress": return await renderProgress();
+      case "s": return await renderHome(isSubject(a) ? a : lastSubject());
+      case "quiz": return isSubject(a) ? await renderQuiz(a, b) : await renderQuiz("phy", a);
+      case "review": return isSubject(a) ? await renderReview(a, b) : await renderReview("phy", a);
+      case "ranks": return isSubject(a) ? await renderRanks(a, b || "today") : await renderRanks(lastSubject(), a || "today");
+      case "progress": return await renderProgress(isSubject(a) ? a : lastSubject());
       case "profile": return await renderProfile();
       case "admin": {
         if (!me.is_admin) return go("home");
         const mod = await import("./admin.js");
-        return await mod.renderAdmin({ sb, me, app, a, b, shell, go, adminBanner });
+        return await mod.renderAdmin({ sb, me, app, a, b, c: location.hash.slice(1).split("/")[3], shell, go, adminBanner, setSubject, neutralTheme });
       }
-      default: return await renderHome();
+      default: return isDay(a) ? await renderHome("phy") : await renderHub();
     }
   } catch (e) {
     console.error(e);
@@ -227,10 +248,18 @@ function shell(active, inner) {
 
 function signature() { return `<p class="footer sig"><span lang="si">සත්කාර</span> · by <b>Sithum De Zoysa</b></p>`; }
 
-function brandHeader(right = "") {
-  return `<header class="top"><div class="brand"><img src="icons/icon-192.png" alt="">
-    <div><b>Physics Daily</b><small>by Sithum De Zoysa</small></div></div>${right}</header>`;
+// Header inside a subject section: subject icon + name, and a button back to the subject picker
+function subjectHeader(s, right = "") {
+  const S = SUBJECTS[s];
+  return `<header class="top"><div class="brand"><img src="${S.icon}" alt="">
+    <div><b>${S.app}</b><small>by Sithum De Zoysa</small></div></div>${right}</header>`;
 }
+const subjectsChip = () => `<a class="subj-chip" href="#home" aria-label="All subjects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/>
+  <rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Subjects</a>`;
+// Physics | Chemistry switch at the top of Ranks / Progress
+const subjectSwitch = (on, href) => `<div class="subj-seg">${SUBJECT_KEYS.map((k) => `<a class="${k} ${k === on ? "on" : ""}" href="${href(k)}">
+  <img src="${SUBJECTS[k].icon}" alt="">${SUBJECTS[k].name}</a>`).join("")}</div>`;
 
 async function rpc(name, args) {
   const { data, error } = await sb.rpc(name, args);
@@ -242,10 +271,11 @@ async function rpc(name, args) {
 // Auth screens
 // ==========================================================
 function authFrame(inner) {
+  neutralTheme();
   app.innerHTML = `<div class="wrap auth">
     <div class="auth-head"><img src="icons/icon-192.png" class="logo-lg" alt="">
-      <h1>Physics Daily</h1><p class="muted"><span class="si-brand" lang="si">සත්කාර</span> · by <b>Sithum De Zoysa</b></p>
-      <p class="muted" style="font-size:13px;margin-top:2px">Daily A/L Physics MCQs</p></div>
+      <h1 class="si-title" lang="si">සත්කාර</h1><p class="muted">by <b>Sithum De Zoysa</b></p>
+      <p class="muted" style="font-size:13px;margin-top:2px">Daily A/L Physics &amp; Chemistry MCQs</p></div>
     ${inner}</div>`;
 }
 
@@ -417,10 +447,85 @@ function renderBanned() {
 // ==========================================================
 // Home
 // ==========================================================
-async function renderHome() {
-  shell("home", `${brandHeader()}<div class="spinner"></div>`);
-  const [home, stats, board, adminStatus] = await Promise.all([rpc("dq_home"), rpc("dq_stats"), rpc("dq_leaderboard", { p_period: "today" }),
-    me.is_admin ? rpc("dq_admin_status").catch(() => null) : null]);
+// "NEW" badge on the Chemistry card for its first two weeks
+const NEW_UNTIL = { chem: "2026-10-18" };
+
+// Subject picker (main screen after login)
+async function renderHub() {
+  neutralTheme();
+  shell("home", `<div class="spinner"></div>`);
+  const subs = mySubjects();
+  const [hub, ...statuses] = await Promise.all([rpc("dq_hub"),
+    ...(me.is_admin ? SUBJECT_KEYS.map((k) => rpc("dq_admin_status", { p_subject: k }).catch(() => null)) : [])]);
+  clockOffset = Date.parse(hub.now) - Date.now();
+  const today = hub.today;
+  const closes = Date.parse(`${addDays(today, 1)}T00:00:00+05:30`);
+  const pushCard = await pushPromptCard();
+
+  const card = (x) => {
+    const S = SUBJECTS[x.subject];
+    const quizNo = (x.title || "").split(" - ")[0] || "Today's quiz";
+    let status;
+    if (!x.count) {
+      status = `<div><b>No quiz today</b><small>New questions are on the way</small></div>`;
+    } else if (x.submitted_at) {
+      status = `<div><b>${esc(quizNo)} · Done ✓ ${x.score}/${x.total}</b><small>Rank #${x.rank} of ${x.participants} · answers open</small></div>
+        <a class="btn btn-ghost" href="#review/${x.subject}/${today}">Review</a>`;
+    } else if (x.started_at && Date.parse(x.deadline) > serverNow()) {
+      status = `<div><b><span class="live-dot"></span>${esc(quizNo)} in progress</b><small>Timer: <b data-count="${Date.parse(x.deadline)}"></b> left</small></div>
+        <a class="btn btn-${x.subject}" href="#quiz/${x.subject}/${today}">Continue</a>`;
+    } else {
+      status = `<div><b>${esc(quizNo)} is open</b><small>⏳ Closes at midnight · <b data-count="${closes}"></b> left</small></div>
+        <button class="btn btn-${x.subject}" data-start="${x.subject}" data-n="${x.count}">Start →</button>`;
+    }
+    return `<div class="subj ${x.subject}">
+      <a class="subj-top" href="#s/${x.subject}"><img src="${S.icon}" alt="">
+        <div><b>${S.name}${today < (NEW_UNTIL[x.subject] || "") ? `<span class="badge-new">NEW</span>` : ""}</b><small>${S.app} · open →</small></div>
+        <div class="subj-streak">🔥 ${x.streak}<small>day streak</small></div></a>
+      <div class="subj-status">${status}</div></div>`;
+  };
+
+  const shown = hub.subjects.filter((x) => subs.includes(x.subject));
+  let both = "";
+  if (shown.length > 1) {
+    const need = shown.filter((x) => x.count);
+    const done = need.filter((x) => x.submitted_at).length;
+    const n = hub.science_streak;
+    const msg = !need.length ? "No quizzes today"
+      : done === need.length ? "Both done today! See you tomorrow 🎉"
+      : n ? `Finish ${need.length - done === 1 ? "the other quiz" : "both quizzes"} today to keep it` : "Do both quizzes today to start it";
+    both = `<div class="both"><span class="ic">🔥</span><div><b>Science streak · ${n} day${n === 1 ? "" : "s"}</b><small>${msg}</small></div>
+      <div class="dots2">${shown.map((x) => `<i class="${x.subject} ${x.submitted_at ? "done" : ""}">${x.subject === "phy" ? "P" : "C"}${x.submitted_at ? " ✓" : ""}</i>`).join("")}</div></div>`;
+  }
+
+  shell("home", `
+    <div class="hub-brand"><div><div class="si" lang="si">සත්කාර</div><small>by <b>Sithum De Zoysa</b></small></div>
+      <span class="hello">Hi, ${esc(me.full_name.split(" ")[0])} 👋</span></div>
+    ${statuses.map((st) => adminBanner(st)).join("")}
+    ${pushCard}
+    <h2 class="hub-q">Which subject today?</h2>
+    ${shown.map(card).join("")}
+    ${both}
+    ${subs.length < SUBJECT_KEYS.length ? `<p class="hint center">More subjects can be turned on in <a class="link" href="#profile">Profile</a>.</p>` : ""}
+    <p class="footer"><span lang="si">සත්කාර</span> · by <b>Sithum De Zoysa</b> · <a href="https://wa.me/${WHATSAPP_NUMBER}" target="_blank" rel="noopener">WhatsApp</a></p>`);
+  startCountdowns();
+  bindPushPrompt();
+  $$("[data-start]").forEach((btn) => btn.onclick = () => startQuiz(btn.dataset.start, today, +btn.dataset.n));
+}
+
+async function startQuiz(s, day, n) {
+  const ok = await confirmBox(`Start today's ${SUBJECTS[s].name} quiz?`,
+    `You'll have <b>${n * 2} minutes</b> for ${n} questions. The timer keeps running even if you close the app, and you get <b>one attempt</b>.`, "Start now");
+  if (ok) go(`quiz/${s}/${day}`);
+}
+
+// One subject's home
+async function renderHome(s) {
+  setSubject(s);
+  shell("home", `${subjectHeader(s, subjectsChip())}<div class="spinner"></div>`);
+  const [home, stats, board, adminStatus] = await Promise.all([rpc("dq_home", { p_subject: s }), rpc("dq_stats", { p_subject: s }),
+    rpc("dq_leaderboard", { p_period: "today", p_subject: s }),
+    me.is_admin ? rpc("dq_admin_status", { p_subject: s }).catch(() => null) : null]);
   clockOffset = Date.parse(home.now) - Date.now();
   const today = home.today;
   const t = home.days.find((d) => d.day === today);
@@ -437,11 +542,11 @@ async function renderHome() {
       <h1>${esc(t.title || "Daily MCQs")}</h1>
       <div class="hero-score"><b>${t.score}<small>/${t.total}</small></b><span class="pill ${pctClass(p)}">${p}%</span>
         <span class="muted">in ${fmtTime(t.time_taken)}</span></div>
-      <div class="row"><span class="muted">New questions tomorrow</span><a class="btn btn-primary" href="#review/${today}">Answers & rank</a></div></div>`;
+      <div class="row"><span class="muted">New questions tomorrow</span><a class="btn btn-primary" href="#review/${s}/${today}">Answers & rank</a></div></div>`;
   } else if (t.started_at && Date.parse(t.deadline) > serverNow()) {
     card = `<div class="hero"><span class="label">Today · In progress</span>
       <h1>${esc(t.title || "Daily MCQs")}</h1><p><span class="live-dot"></span> Your timer is running: <b data-count="${Date.parse(t.deadline)}"></b> left</p>
-      <div class="row"><span></span><a class="btn btn-primary" href="#quiz/${today}">Continue →</a></div></div>`;
+      <div class="row"><span></span><a class="btn btn-primary" href="#quiz/${s}/${today}">Continue →</a></div></div>`;
   } else {
     const closes = Date.parse(`${addDays(today, 1)}T00:00:00+05:30`);
     card = `<div class="hero"><span class="label">Today's quiz · ${esc(niceDay(today))}</span>
@@ -452,25 +557,23 @@ async function renderHome() {
   }
 
   const top = board.rows.slice(0, 3);
-  const pushCard = await pushPromptCard();
   shell("home", `
-    ${brandHeader(`<span class="hello">Hi, ${esc(me.full_name.split(" ")[0])} 👋</span>`)}
+    ${subjectHeader(s, subjectsChip())}
     ${card}
     ${adminBanner(adminStatus)}
-    ${pushCard}
     <div class="stats">
       <div class="stat fire"><b>🔥 ${stats.streak}</b><small>Day streak</small></div>
       <div class="stat"><b>${stats.correct}<small class="muted">/${stats.answered}</small></b><small>Correct / answered</small></div>
       <div class="stat"><b>${acc == null ? "—" : acc + "%"}</b><small>Accuracy</small></div>
     </div>
-    ${top.length ? `<h2 class="section-title">Today's top ${top.length} <a href="#ranks/today">Full ranking →</a></h2>
+    ${top.length ? `<h2 class="section-title">Today's top ${top.length} <a href="#ranks/${s}/today">Full ranking →</a></h2>
       <div class="card list-card">${top.map(rankRow).join("")}</div>` : ""}
     ${past.length ? `<h2 class="section-title">Previous days</h2>
       <div class="days">${past.map((d) => {
         const done = !!d.submitted_at;
         const p = done ? Math.round((d.score / d.total) * 100) : 0;
         const dt = new Date(d.day + "T00:00:00");
-        return `<a class="day" href="#review/${d.day}">
+        return `<a class="day" href="#review/${s}/${d.day}">
           <span class="date"><b>${dt.getDate()}</b><small>${dt.toLocaleDateString("en-GB", { month: "short" })}</small></span>
           <span class="info"><b>${esc(d.title || "Daily MCQs")}</b><small>${d.count} questions${done ? ` · ${fmtTime(d.time_taken)}` : " · view answers"}</small></span>
           ${done ? `<span class="pill ${pctClass(p)}">${d.score}/${d.total}</span>` : `<span class="pill">Missed</span>`}</a>`;
@@ -478,12 +581,7 @@ async function renderHome() {
     <p class="footer"><span lang="si">සත්කාර</span> · by <b>Sithum De Zoysa</b> · <a href="https://wa.me/${WHATSAPP_NUMBER}" target="_blank" rel="noopener">WhatsApp</a></p>`);
 
   startCountdowns();
-  bindPushPrompt();
-  $("#startBtn")?.addEventListener("click", async () => {
-    const ok = await confirmBox("Start today's quiz?",
-      `You'll have <b>${t.count * 2} minutes</b> for ${t.count} questions. The timer keeps running even if you close the app, and you get <b>one attempt</b>.`, "Start now");
-    if (ok) go(`quiz/${today}`);
-  });
+  $("#startBtn")?.addEventListener("click", () => startQuiz(s, today, t.count));
 }
 
 function startCountdowns() {
@@ -510,15 +608,16 @@ function stopQuiz() {
   quiz = null;
 }
 
-async function renderQuiz(day) {
+async function renderQuiz(s, day) {
+  setSubject(s);
   app.innerHTML = `<div class="wrap"><div class="spinner"></div></div>`;
-  const st = await rpc("dq_start", { p_day: day });
-  if (st.submitted) return go(`review/${day}`);
+  const st = await rpc("dq_start", { p_day: day, p_subject: s });
+  if (st.submitted) return go(`review/${s}/${day}`);
 
   let local = {};
-  try { local = JSON.parse(localStorage.getItem(`dq:${day}`)) || {}; } catch { /* ignore */ }
+  try { local = JSON.parse(localStorage.getItem(`dq:${s}:${day}`)) || {}; } catch { /* ignore */ }
   quiz = {
-    day, title: st.title, qs: st.questions,
+    subject: s, day, title: st.title, qs: st.questions,
     answers: { ...st.answers, ...local },
     i: 0, reviewing: false, submitting: false,
     deadline: Date.now() + st.seconds_left * 1000
@@ -595,7 +694,7 @@ function drawQuiz() {
   bindLangSwitch(drawQuiz);
   $("#leave").onclick = async () => {
     const ok = await confirmBox("Leave the quiz?", "Your answers are saved, but <b>the timer keeps running</b>. Come back before it ends.", "Leave");
-    if (ok) go("home");
+    if (ok) go(`s/${z.subject}`);
   };
 }
 
@@ -603,10 +702,10 @@ function pick(k) {
   const z = quiz;
   const id = z.qs[z.i].id;
   if (k == null || z.answers[id] === k) delete z.answers[id]; else z.answers[id] = k;
-  try { localStorage.setItem(`dq:${z.day}`, JSON.stringify(z.answers)); } catch { /* ignore */ }
+  try { localStorage.setItem(`dq:${z.subject}:${z.day}`, JSON.stringify(z.answers)); } catch { /* ignore */ }
   try { navigator.vibrate?.(10); } catch { /* ignore */ }
   clearTimeout(z.saveTimer);
-  z.saveTimer = setTimeout(() => sb.rpc("dq_save", { p_day: z.day, p_answers: z.answers }), 700);
+  z.saveTimer = setTimeout(() => sb.rpc("dq_save", { p_day: z.day, p_answers: z.answers, p_subject: z.subject }), 700);
   drawQuiz();
 }
 
@@ -618,12 +717,12 @@ async function submitQuiz(auto) {
   clearTimeout(z.saveTimer);
   app.innerHTML = `<div class="wrap center"><div class="spinner"></div><p class="muted">${auto ? "Time's up! Submitting…" : "Submitting…"}</p></div>`;
   for (let tries = 0; tries < 5; tries++) {
-    const { error } = await sb.rpc("dq_submit", { p_day: z.day, p_answers: z.answers });
+    const { error } = await sb.rpc("dq_submit", { p_day: z.day, p_answers: z.answers, p_subject: z.subject });
     if (!error) {
-      try { localStorage.removeItem(`dq:${z.day}`); } catch { /* ignore */ }
+      try { localStorage.removeItem(`dq:${z.subject}:${z.day}`); } catch { /* ignore */ }
       quiz = null;
       if (auto) toast("Time's up. Your answers were submitted.");
-      return go(`review/${z.day}`);
+      return go(`review/${z.subject}/${z.day}`);
     }
     await new Promise((r) => setTimeout(r, 2000 * (tries + 1)));
   }
@@ -637,9 +736,11 @@ async function submitQuiz(auto) {
 // ==========================================================
 // Review / results
 // ==========================================================
-async function renderReview(day) {
+async function renderReview(s, day) {
+  setSubject(s);
+  const S = SUBJECTS[s];
   shell("home", `<div class="spinner"></div>`);
-  const r = await rpc("dq_review", { p_day: day });
+  const r = await rpc("dq_review", { p_day: day, p_subject: s });
   const qs = r.questions || [];
   const status = (q) => (!r.attempted ? "none" : q.yours == null ? "skip" : q.yours === q.correct ? "right" : "wrong");
   const counts = { right: 0, wrong: 0, skip: 0 };
@@ -647,7 +748,7 @@ async function renderReview(day) {
   const pct = r.attempted && r.total ? Math.round((r.score / r.total) * 100) : 0;
   const color = pct >= 75 ? "#16a34a" : pct >= 50 ? "#f59e0b" : "#dc2626";
   const url = location.origin + location.pathname;
-  const shareText = `I scored ${r.score}/${r.total} on Physics Daily by Sithum De Zoysa 🔬${r.rank ? ` (rank #${r.rank})` : ""}! Try today's A/L Physics MCQs: ${url}`;
+  const shareText = `I scored ${r.score}/${r.total} on ${S.app} by Sithum De Zoysa ${S.emoji}${r.rank ? ` (rank #${r.rank})` : ""}! Try today's A/L ${S.name} MCQs on සත්කාර: ${url}`;
 
   const header = r.attempted ? `
     <div class="result card">
@@ -663,7 +764,7 @@ async function renderReview(day) {
       </div>
       <p class="rank-line">🏅 Rank <b>#${r.rank}</b> of ${r.participants}${day === todayGuess() ? " so far" : ""} · Class average <b>${Math.round(r.avg_pct ?? 0)}%</b></p>
       <p class="sig-line">Questions &amp; methods by <b>Sithum De Zoysa</b></p>
-      <div class="sheet-btns"><button class="btn btn-wa" id="share">Share score</button><a class="btn btn-ghost" href="#ranks/today">Leaderboard</a></div>
+      <div class="sheet-btns"><button class="btn btn-wa" id="share">Share score</button><a class="btn btn-ghost" href="#ranks/${s}/today">Leaderboard</a></div>
     </div>` : `
     <div class="card"><h2>${esc(r.title || "Daily MCQs")}</h2>
       <p class="muted">You missed this day. Here are the questions with answers and methods.
@@ -680,7 +781,7 @@ async function renderReview(day) {
   const draw = () => {
     const y = window.scrollY;
     shell("home", `
-      <div class="qtop plain"><div class="qtop-row"><a class="back" href="#home" aria-label="Home">←</a>
+      <div class="qtop plain"><div class="qtop-row"><a class="back" href="#s/${s}" aria-label="Back">←</a>
         <div class="qtop-title"><b>${esc(r.title || "Daily MCQs")}</b><small>${esc(niceDay(day))}</small></div></div></div>
       ${header}
       <h2 class="section-title">Answers & methods ${langSwitch()}</h2>
@@ -738,17 +839,18 @@ function rankRow(r) {
   </div>`;
 }
 
-async function renderRanks(period) {
+async function renderRanks(s, period) {
+  setSubject(s);
   if (!PERIODS.some(([k]) => k === period)) period = "today";
-  const seg = `<div class="seg">${PERIODS.map(([k, l]) => `<a href="#ranks/${k}" class="${k === period ? "on" : ""}">${l}</a>`).join("")}</div>`;
-  shell("ranks", `<h1 class="page-title">Leaderboard</h1>${seg}<div class="spinner"></div>`);
-  const b = await rpc("dq_leaderboard", { p_period: period });
+  const seg = `<div class="seg">${PERIODS.map(([k, l]) => `<a href="#ranks/${s}/${k}" class="${k === period ? "on" : ""}">${l}</a>`).join("")}</div>`;
+  shell("ranks", `<h1 class="page-title">Leaderboard</h1>${subjectSwitch(s, (k) => `#ranks/${k}/${period}`)}${seg}<div class="spinner"></div>`);
+  const b = await rpc("dq_leaderboard", { p_period: period, p_subject: s });
   const mine = b.rows.find((r) => r.me);
   const top = b.rows.filter((r) => r.rank <= 100);
   const outside = mine && mine.rank > 100;
 
   shell("ranks", `
-    <h1 class="page-title">Leaderboard</h1>${seg}
+    <h1 class="page-title">Leaderboard</h1>${subjectSwitch(s, (k) => `#ranks/${k}/${period}`)}${seg}
     <p class="board-note">Ranked by correct answers out of <b>${b.total_questions}</b> questions
       ${period === "today" ? "today" : `over ${b.days} day${b.days === 1 ? "" : "s"}`}. A missed day counts as zero.
       Ties go to the <b>lower average time per quiz</b>.</p>
@@ -763,15 +865,16 @@ async function renderRanks(period) {
 // ==========================================================
 // Progress
 // ==========================================================
-async function renderProgress() {
-  shell("progress", `<h1 class="page-title">My progress</h1><div class="spinner"></div>`);
-  const s = await rpc("dq_stats");
+async function renderProgress(subject) {
+  setSubject(subject);
+  shell("progress", `<h1 class="page-title">My progress</h1>${subjectSwitch(subject, (k) => `#progress/${k}`)}<div class="spinner"></div>`);
+  const s = await rpc("dq_stats", { p_subject: subject });
   const acc = s.answered ? Math.round((s.correct / s.answered) * 100) : null;
   const overall = s.questions ? Math.round((s.correct / s.questions) * 100) : null;
   const h = s.history;
 
   shell("progress", `
-    <h1 class="page-title">My progress</h1>
+    <h1 class="page-title">My progress</h1>${subjectSwitch(subject, (k) => `#progress/${k}`)}
     <div class="tiles">
       <div class="tile big"><small>Correct answers</small><b>${s.correct}<span>/${s.answered}</span></b><em>${acc == null ? "No answers yet" : `${acc}% accuracy on answered questions`}</em></div>
       <div class="tile"><small>Quizzes done</small><b>${s.quizzes}<span>/${s.days_released}</span></b></div>
@@ -789,15 +892,15 @@ async function renderProgress() {
     ${h.length ? `<div class="days">${[...h].reverse().map((d) => {
       const p = Math.round((d.score / d.total) * 100);
       const dt = new Date(d.day + "T00:00:00");
-      return `<a class="day" href="#review/${d.day}">
+      return `<a class="day" href="#review/${subject}/${d.day}">
         <span class="date"><b>${dt.getDate()}</b><small>${dt.toLocaleDateString("en-GB", { month: "short" })}</small></span>
         <span class="info"><b>${esc(d.title || "Daily MCQs")}</b><small>Rank #${d.rank} of ${d.participants} · ${fmtTime(d.time_taken)}</small></span>
         <span class="pill ${pctClass(p)}">${d.score}/${d.total}</span></a>`;
     }).join("")}</div>` : `<div class="empty">Do your first daily quiz to start tracking progress.</div>`}`);
 
   lineChart($("#chart"), h.map((d) => niceDay(d.day, { day: "numeric", month: "short" })), [
-    { name: "You", color: SERIES.you, values: h.map((d) => (d.total ? (d.score / d.total) * 100 : null)) },
-    { name: "Class average", color: SERIES.avg, values: h.map((d) => (d.avg_pct == null ? null : +d.avg_pct)) }
+    { name: "You", color: SUBJECTS[subject].series.you, values: h.map((d) => (d.total ? (d.score / d.total) * 100 : null)) },
+    { name: "Class average", color: SUBJECTS[subject].series.avg, values: h.map((d) => (d.avg_pct == null ? null : +d.avg_pct)) }
   ]);
 }
 
@@ -805,12 +908,21 @@ async function renderProgress() {
 // Profile
 // ==========================================================
 async function renderProfile() {
+  neutralTheme();
   const push = await pushState();
+  const subs = mySubjects();
   shell("profile", `
     <h1 class="page-title">Profile</h1>
     <div class="card profile-card">
       <div class="avatar">${esc(me.full_name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase())}</div>
       <h2>${esc(me.full_name)}</h2><p class="muted">${esc(me.school)}</p>
+    </div>
+    <div class="card">
+      <h3 class="card-title">📚 My subjects</h3>
+      <div class="subj-rows">${SUBJECT_KEYS.map((k) => `
+        <label class="subj-row"><img src="${SUBJECTS[k].icon}" alt=""><span class="t"><b>${SUBJECTS[k].name}</b><small>Daily quiz + reminders</small></span>
+          <input type="checkbox" class="switch" data-subj="${k}" ${subs.includes(k) ? "checked" : ""}></label>`).join("")}</div>
+      <p class="hint">One account for every subject. Turn one off to hide it from your home screen and stop its reminders.</p>
     </div>
     <div class="card">
       <dl class="kv">
@@ -837,6 +949,14 @@ async function renderProfile() {
     <button class="btn btn-ghost btn-block" id="out" style="margin-top:10px">Log out</button>
     <p class="footer">Your NIC and phone are private. Only your name and school appear on leaderboards.</p>`);
   $("#out").onclick = () => sb.auth.signOut();
+  $$("[data-subj]").forEach((cb) => cb.onchange = async () => {
+    const next = $$("[data-subj]").filter((x) => x.checked).map((x) => x.dataset.subj);
+    if (!next.length) { cb.checked = true; toast("Keep at least one subject on."); return; }
+    const { error } = await sb.from("profiles").update({ subjects: next }).eq("id", me.id);
+    if (error) { cb.checked = !cb.checked; toast("Couldn't save: " + error.message); return; }
+    me.subjects = next;
+    toast(`${SUBJECTS[cb.dataset.subj].name} ${cb.checked ? "on" : "off"}.`);
+  });
   bindLangSwitch(() => { toast(`Questions will be shown in ${LANG_NAMES[lang]}.`); renderProfile(); });
   $("#pushToggle")?.addEventListener("click", async (e) => {
     e.target.disabled = true;
@@ -908,12 +1028,13 @@ function openReport(qid, n, done) {
 function adminBanner(st) {
   if (!st) return "";
   const parts = [];
+  const name = SUBJECTS[st.subject || "phy"].name;
   if (!st.tomorrow_count) {
-    parts.push(`⚠️ <b>No quiz scheduled for tomorrow.</b> Ask Claude to add it.`);
+    parts.push(`⚠️ <b>No ${name} quiz scheduled for tomorrow.</b> Ask Claude to add it.`);
   } else if (st.days_ahead < 3) {
-    parts.push(`📅 Only <b>${st.days_ahead} day${st.days_ahead === 1 ? "" : "s"}</b> scheduled ahead. Next empty day: <b>${esc(niceDay(st.next_empty_day))}</b>.`);
+    parts.push(`📅 ${name}: only <b>${st.days_ahead} day${st.days_ahead === 1 ? "" : "s"}</b> scheduled ahead. Next empty day: <b>${esc(niceDay(st.next_empty_day))}</b>.`);
   }
-  if (st.open_reports) parts.push(`⚑ <b>${st.open_reports}</b> question report${st.open_reports === 1 ? "" : "s"} to check. <a class="link" href="#admin/reports">Open</a>`);
+  if (st.open_reports) parts.push(`⚑ <b>${st.open_reports}</b> ${name} question report${st.open_reports === 1 ? "" : "s"} to check. <a class="link" href="#admin/reports">Open</a>`);
   return parts.length ? `<div class="banner admin-banner">${parts.join("<br>")}</div>` : "";
 }
 export { adminBanner };
