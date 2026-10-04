@@ -56,13 +56,15 @@ Default 10 questions/day unless Sithum says otherwise.
 
 - `title` must be **`Quiz NN - <ordinal> <Mon> <YYYY>`**, e.g. `Quiz 01 - 1st Oct 2026` (Sithum's rule).
   Numbered one per day in date order from Quiz 01 = 1 Oct 2026 (29–30 Sep were trial days). No topic names in titles.
-- Statement-style questions use **(I), (II), (III)** (the app letters options A–E) with options like
-  "I only", "I and II only", "I, II and III". Put each statement on its own line (`\n`).
+- Statement-style questions use **(A), (B), (C)** (Sithum's rule) with options like "A only", "A and B only",
+  "A, B and C" (si: "A පමණි", "A හා B පමණි", "A, B හා C සියල්ලම"; ta: "A மாத்திரம்", "A உம் B உம் மாத்திரம்",
+  "A, B, C ஆகிய எல்லாம்"). Put each statement on its own line (`\n`). The app numbers the answer options **1–5**
+  (like the A/L paper), so refer to options by number in explanations.
 - **Every question is trilingual**: English plus `"si"` (Sinhala) and `"ta"` (Tamil), each
   `{ "q": …, "options": [5, SAME ORDER as English], "explain": … }`. The answer index is shared, so the
   translated options must be in exactly the English order. Use the terms in `content/glossary.md`.
   Menus/buttons stay English. Students choose a language in Profile and can switch EN | සිං | தமி any time.
-- `id` = `<date>-<NN>` in order (enforced). `answer` is 0-based (A=0 … E=4). Exactly 5 options.
+- `id` = `<date>-<NN>` in order (enforced). `answer` is 0-based (option 1 = 0 … option 5 = 4). Exactly 5 options.
 - Diagrams: save the image to `img/q/<id>.png` (that folder IS public and gets pushed), set `"image"`.
 
 ### 2. Correctness rules

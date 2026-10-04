@@ -1,7 +1,7 @@
 // Offline support for the app's own files (so it opens instantly).
 // Database requests (Supabase) are never cached — marks and questions are always live.
 // Bump VERSION whenever app code (js/, *.css, index.html) changes so phones pick it up.
-const VERSION = "v10";
+const VERSION = "v11";
 const SHELL = `shell-${VERSION}`;
 const SHELL_FILES = [
   "./", "index.html", "styles.css", "app.css", "light.css", "js/app.js", "js/ui.js", "js/admin.js", "js/config.js",

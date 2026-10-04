@@ -3,7 +3,8 @@
 // ==========================================================
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-export const LETTERS = ["A", "B", "C", "D", "E"];
+// Answer options are numbered 1–5 like the A/L paper (statements inside questions use A, B, C)
+export const LETTERS = ["1", "2", "3", "4", "5"];
 // Chart colours, validated for colour-blind separation on the dark surface
 export const SERIES = { you: "#d97706", avg: "#2563eb" };
 
