@@ -716,7 +716,7 @@ async function renderReview(day) {
     $$("#filter button").forEach((b) => b.onclick = () => { filter = b.dataset.f; applyFilter(); });
     applyFilter();
     bindLangSwitch(draw);
-    $("[data-report]").forEach((b) => b.onclick = () => openReport(b.dataset.report, b.dataset.n, () => draw()));
+    $$("[data-report]").forEach((b) => b.onclick = () => openReport(b.dataset.report, b.dataset.n, () => draw()));
     window.scrollTo(0, y);
   };
   draw();
