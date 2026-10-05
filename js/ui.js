@@ -13,6 +13,12 @@ export const SUBJECTS = {
   phy: { key: "phy", name: "Physics", app: "Physics Daily", icon: "icons/phy.svg", emoji: "🔬", series: { you: "#d97706", avg: "#2563eb" } },
   chem: { key: "chem", name: "Chemistry", app: "Chemistry Daily", icon: "icons/chem.svg", emoji: "🧪", series: { you: "#047857", avg: "#7c3aed" } }
 };
+// Subject icons drawn inline (an <img> is re-decoded on every redraw and blinks)
+const SUBJECT_SVG = {
+  phy: `<rect width="512" height="512" fill="#ffffff"/> <path d="M48 300 L196 248" stroke="#0f172a" stroke-width="16" stroke-linecap="round"/> <path d="M318 262 L470 196" stroke="#ef4444" stroke-width="16" stroke-linecap="round"/> <path d="M322 282 L470 248" stroke="#f59e0b" stroke-width="16" stroke-linecap="round"/> <path d="M326 302 L470 300" stroke="#22c55e" stroke-width="16" stroke-linecap="round"/> <path d="M330 322 L470 352" stroke="#2563eb" stroke-width="16" stroke-linecap="round"/> <path d="M256 104 L392 384 H120 Z" fill="#eef4ff" stroke="#0f172a" stroke-width="20" stroke-linejoin="round"/>`,
+  chem: `<rect width="512" height="512" fill="#ffffff"/> <path d="M164 334 H348 L388 400 Q396 416 378 416 H134 Q116 416 124 400 Z" fill="#34d399"/> <circle cx="226" cy="372" r="16" fill="#fff" opacity=".9"/><circle cx="292" cy="388" r="10" fill="#fff" opacity=".9"/> <circle cx="236" cy="282" r="15" fill="#7c3aed"/><circle cx="282" cy="236" r="11" fill="#f59e0b"/><circle cx="262" cy="176" r="8" fill="#7c3aed"/> <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#0f172a" stroke-width="20"><path d="M222 100 V214 L114 396 Q100 424 132 424 H380 Q412 424 398 396 L290 214 V100"/><path d="M198 100 H314"/></g>`
+};
+export const subjIcon = (k) => `<svg class="sicon" viewBox="0 0 512 512" aria-hidden="true">${SUBJECT_SVG[k]}</svg>`;
 export const SUBJECT_KEYS = ["phy", "chem"];
 export const isSubject = (s) => SUBJECT_KEYS.includes(s);
 

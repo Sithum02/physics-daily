@@ -13,7 +13,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, WHATSAPP_NUMBER, WHATSAPP_DISPLAY, VAP
 import {
   $, $$, esc, fmt, fmtTime, niceDay, addDays, pctClass, toast, sheet, confirmBox,
   lineChart, barList, LETTERS, DISTRICTS, normalizeNic, normalizePhone, maskNic,
-  SUBJECTS, SUBJECT_KEYS, isSubject
+  SUBJECTS, SUBJECT_KEYS, isSubject, subjIcon
 } from "./ui.js";
 
 const app = $("#app");
@@ -259,7 +259,7 @@ function signature() { return `<p class="footer sig"><span lang="si">සත්�
 // Header inside a subject section: subject icon + name, and a button back to the subject picker
 function subjectHeader(s, right = "") {
   const S = SUBJECTS[s];
-  return `<header class="top"><div class="brand"><img src="${S.icon}" alt="">
+  return `<header class="top"><div class="brand">${subjIcon(S.key)}
     <div><b>${S.app}</b><small>by Sithum De Zoysa</small></div></div>${right}</header>`;
 }
 const subjectsChip = () => `<a class="subj-chip" href="#home" aria-label="All subjects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -267,7 +267,7 @@ const subjectsChip = () => `<a class="subj-chip" href="#home" aria-label="All su
   <rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Subjects</a>`;
 // Physics | Chemistry switch at the top of Ranks / Progress
 const subjectSwitch = (on, href) => `<div class="subj-seg">${SUBJECT_KEYS.map((k) => `<a class="${k} ${k === on ? "on" : ""}" href="${href(k)}">
-  <img src="${SUBJECTS[k].icon}" alt="">${SUBJECTS[k].name}</a>`).join("")}</div>`;
+  ${subjIcon(k)}${SUBJECTS[k].name}</a>`).join("")}</div>`;
 
 async function rpc(name, args) {
   const { data, error } = await sb.rpc(name, args);
@@ -516,7 +516,7 @@ async function renderHub() {
         <button class="btn btn-${x.subject}" data-start="${x.subject}" data-n="${x.count}">Start →</button>`;
     }
     return `<div class="subj ${x.subject}">
-      <a class="subj-top" href="#s/${x.subject}"><img src="${S.icon}" alt="">
+      <a class="subj-top" href="#s/${x.subject}">${subjIcon(S.key)}
         <div><b>${S.name}</b><small>${S.app} · open →</small></div>
         <div class="subj-streak">🔥 ${x.streak}<small>day streak</small></div></a>
       <div class="subj-status">${status}</div></div>`;
@@ -953,7 +953,7 @@ async function renderProfile() {
     <div class="card">
       <h3 class="card-title">My subjects</h3>
       <div class="subj-rows">${SUBJECT_KEYS.map((k) => `
-        <label class="subj-row"><img src="${SUBJECTS[k].icon}" alt=""><span class="t"><b>${SUBJECTS[k].name}</b><small>Daily quiz + reminders</small></span>
+        <label class="subj-row">${subjIcon(k)}<span class="t"><b>${SUBJECTS[k].name}</b><small>Daily quiz + reminders</small></span>
           <input type="checkbox" class="switch" data-subj="${k}" ${subs.includes(k) ? "checked" : ""}></label>`).join("")}</div>
       <p class="hint">One account for every subject. Turn one off to hide it from your home screen and stop its reminders.</p>
     </div>

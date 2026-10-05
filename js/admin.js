@@ -5,7 +5,7 @@
 //   #admin/s/<id>/<subj>        one student
 //   #admin/d/<subj>/<day>       rank sheet + question analysis   (old: #admin/d/<day> = Physics)
 // ==========================================================
-import { $, $$, esc, fmt, fmtTime, niceDay, pctClass, toast, sheet, confirmBox, lineChart, barList, LETTERS, SUBJECTS, SUBJECT_KEYS, isSubject } from "./ui.js";
+import { $, $$, esc, fmt, fmtTime, niceDay, pctClass, toast, sheet, confirmBox, lineChart, barList, LETTERS, SUBJECTS, SUBJECT_KEYS, isSubject, subjIcon } from "./ui.js";
 
 let ctx;
 const rpc = async (name, args) => {
@@ -30,7 +30,7 @@ export async function renderAdmin(c) {
 
 // Physics | Chemistry switch for admin screens
 const subjSeg = (on, href) => `<div class="subj-seg">${SUBJECT_KEYS.map((k) => `<a class="${k} ${k === on ? "on" : ""}" href="${href(k)}">
-  <img src="${SUBJECTS[k].icon}" alt="">${SUBJECTS[k].name}</a>`).join("")}</div>`;
+  ${subjIcon(k)}${SUBJECTS[k].name}</a>`).join("")}</div>`;
 
 const seg = (on) => `<div class="seg"><a href="#admin/students" class="${on === "students" ? "on" : ""}">Students</a>
   <a href="#admin/days/${subj}" class="${on === "days" ? "on" : ""}">Sheets</a>
