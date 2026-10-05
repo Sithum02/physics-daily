@@ -26,7 +26,13 @@ let quiz = null;          // active quiz state
 let recovering = false;   // password-reset link in progress
 let pendingError = "";   // message to show on the next form
 
-const PUBLIC = ["login", "register", "newpass"];
+const PUBLIC = ["welcome", "login", "register", "newpass"];
+
+// Remember (on this phone only) that someone has logged in here before:
+// first-time visitors get the Welcome screen, returning ones go straight to Log in.
+const SEEN_KEY = "loggedInBefore";
+function markSeen() { try { localStorage.setItem(SEEN_KEY, "1"); } catch { /* ignore */ } }
+function seenBefore() { try { return localStorage.getItem(SEEN_KEY) === "1"; } catch { return false; } }
 
 // ---------- Subject sections ----------
 let subj = "phy";         // subject of the screen being shown
@@ -183,6 +189,7 @@ async function loadMe() {
   if (!session) { me = null; return null; }
   const { data } = await sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
   me = data ? { ...data, user: session.user } : null;
+  markSeen();
   if (me?.lang) lang = me.lang;
   return me;
 }
@@ -196,11 +203,12 @@ async function route() {
     if (view === "newpass") return renderNewPass();
     if (!me) await loadMe();
     if (me) return go("home");
+    if (view === "welcome") return renderWelcome();
     return view === "register" ? renderRegister() : renderLogin();
   }
 
   if (!me) await loadMe();
-  if (!me) return go("login");
+  if (!me) return go(seenBefore() ? "login" : "welcome");
   if (me.is_banned) return renderBanned();
   if (!me.nic || !me.full_name || !me.school) { if (view !== "complete") return go("complete"); return renderComplete(); }
 
@@ -279,6 +287,22 @@ function authFrame(inner) {
     ${inner}</div>`;
 }
 
+// First screen on a phone that has never logged in
+function renderWelcome() {
+  authFrame(`
+    <div class="card welcome">
+      <h2>Welcome 👋</h2>
+      <p class="muted">Practise A/L Physics and Chemistry with 10 new MCQs every day.</p>
+      <ul class="pts"><li><i>✓</i><span>Full answers and working for every question</span></li>
+        <li><i>✓</i><span>English, සිංහල and தமிழ்</span></li>
+        <li><i>✓</i><span>Island-wide leaderboards. Completely free.</span></li></ul>
+      <a class="btn btn-primary btn-block btn-big" href="#register">Create a free account</a>
+      <p class="small">Takes about a minute.</p>
+      <div class="or">already registered?</div>
+      <a class="btn btn-outline btn-block btn-big" href="#login">I already have an account</a>
+    </div>`);
+}
+
 function renderLogin() {
   authFrame(`
     <form class="card form" id="f">
@@ -286,17 +310,26 @@ function renderLogin() {
       <label>Email<input type="email" name="email" required autocomplete="email"></label>
       <label>Password<input type="password" name="password" required autocomplete="current-password"></label>
       <p class="err" id="err"></p>
+      <div class="new-cta" id="newCta" hidden><div><b>New to <span lang="si">සත්කාර</span>?</b><span>You need an account first.</span></div>
+        <a class="btn btn-primary" href="#register">Create account →</a></div>
       <button class="btn btn-primary btn-block">Log in</button>
       <button type="button" class="link" id="forgot">Forgot password?</button>
     </form>
-    <p class="center muted" style="margin-top:18px">New here? <a class="link" href="#register">Create an account</a></p>`);
+    <a class="btn btn-outline btn-block btn-big" href="#register" style="margin-top:16px">New here? Create a free account</a>`);
   const f = $("#f");
+  f.password.oninput = () => f.password.classList.remove("bad");
   f.onsubmit = async (e) => {
     e.preventDefault();
     const btn = e.submitter; btn.disabled = true;
     const { error } = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.password.value });
     btn.disabled = false;
-    if (error) { $("#err").textContent = /confirm/i.test(error.message) ? "Please confirm your email first (check your inbox)." : "Wrong email or password."; return; }
+    if (error) {
+      const unconfirmed = /confirm/i.test(error.message);
+      $("#err").textContent = unconfirmed ? "Please confirm your email first (check your inbox)." : "Wrong email or password.";
+      $("#newCta").hidden = unconfirmed; // a wrong login may mean they never signed up
+      f.password.classList.toggle("bad", !unconfirmed);
+      return;
+    }
     await loadMe();
     go("home");
   };

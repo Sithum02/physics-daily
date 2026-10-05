@@ -219,3 +219,23 @@ body:has(.tabbar) .toast, body:has(.qbar) .toast { bottom: calc(var(--tabbar-h) 
 /* Sinhala and Tamil need a little more line height to stay readable */
 [lang="si"] .qtext, [lang="ta"] .qtext, [lang="si"] .opt, [lang="ta"] .opt, [lang="si"] .method, [lang="ta"] .method { line-height: 1.75; }
 [lang="ta"] .qtext { font-size: 17px; }
+
+/* Welcome screen (first visit on a phone) and Log in helpers */
+.welcome { text-align: center; padding: 26px 22px 22px; }
+.welcome h2 { font-size: 22px; margin-bottom: 6px; }
+.welcome .muted { font-size: 14.5px; line-height: 1.5; }
+.welcome .pts { list-style: none; text-align: left; margin: 18px 0 20px; display: grid; gap: 10px; font-size: 14px; }
+.welcome .pts li { display: flex; gap: 10px; align-items: flex-start; }
+.welcome .pts i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; background: rgba(255, 197, 61, .22); display: grid; place-items: center; font-size: 12px; flex: none; }
+.welcome .small { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.btn-big { min-height: 54px; font-size: 17px; }
+.btn-outline { border: 1.5px solid var(--accent-2); color: var(--accent-2); background: var(--surface); }
+.or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12.5px; margin: 18px 0 12px; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.new-cta { margin: 0 0 14px; border: 1.5px dashed #c7d6fb; background: #f3f7ff; border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
+.new-cta[hidden] { display: none; }
+.new-cta b { display: block; font-size: 14.5px; line-height: 1.4; }
+.new-cta b [lang="si"] { font-family: "Noto Sans Sinhala", sans-serif; }
+.new-cta > div > span { display: block; font-size: 12.5px; line-height: 1.35; color: var(--muted); }
+.new-cta .btn { margin-left: auto; white-space: nowrap; padding: 10px 14px; font-size: 14px; }
+.form input.bad { border-color: var(--bad); }
