@@ -541,7 +541,10 @@ async function renderHub() {
 
 async function startQuiz(s, day, n) {
   const ok = await confirmBox(`Start today's ${SUBJECTS[s].name} quiz?`,
-    `You'll have <b>${n * 2} minutes</b> for ${n} questions. The timer keeps running even if you close the app, and you get <b>one attempt</b>.`, "Start now");
+    `You'll have <b>${n * 2} minutes</b> for ${n} questions. The timer keeps running even if you close the app, and you get <b>one attempt</b>.
+     <span class="anon-tip">${me.anon
+       ? `🙈 You're hidden: your score shows as "Anonymous" on the leaderboard. You can show your real name any time from the Profile tab.`
+       : `🏆 Your score will appear on the leaderboard with your name. You can choose to show your real name or "Anonymous" from the Profile tab.`}</span>`, "Start now");
   if (ok) go(`quiz/${s}/${day}`);
 }
 
@@ -857,9 +860,13 @@ const PERIODS = [["today", "Today"], ["week", "7 days"], ["month", "30 days"], [
 
 function rankRow(r) {
   const medal = r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : r.rank === 3 ? "🥉" : `#${r.rank}`;
-  return `<div class="rank-row ${r.me ? "me" : ""}">
+  // Hidden students: others get "Anonymous" from the server; show yourself the same way.
+  // The admin still receives real names, marked as hidden.
+  const name = r.anon && r.me ? "Anonymous" : r.name;
+  const school = r.anon && r.me ? "Anonymous" : `${r.school || ""}${r.anon && name !== "Anonymous" ? " · hidden" : ""}`;
+  return `<div class="rank-row ${r.me ? "me" : ""} ${r.anon ? "anon" : ""}">
     <span class="rk">${medal}</span>
-    <span class="who"><b>${esc(r.name)}${r.me ? " (you)" : ""}</b><small>${esc(r.school || "")}</small></span>
+    <span class="who"><b>${r.anon ? "🙈 " : ""}${esc(name)}${r.me ? " (you)" : ""}</b><small>${esc(school)}</small></span>
     <span class="sc"><b>${r.correct}</b><small>${r.pct != null ? Math.round(r.pct) + "%" : ""}</small></span>
     <span class="tm"><b>${fmtTime(r.avg_time)}</b><small>avg</small></span>
   </div>`;
@@ -880,7 +887,7 @@ async function renderRanks(s, period) {
     <p class="board-note">Ranked by correct answers out of <b>${b.total_questions}</b> questions
       ${period === "today" ? "today" : `over ${b.days} day${b.days === 1 ? "" : "s"}`}. A missed day counts as zero.
       Ties go to the <b>lower average time per quiz</b>.</p>
-    ${mine ? `<div class="my-rank"><span>Your rank</span><b>#${mine.rank}</b><span>${mine.correct}/${b.total_questions} · ${Math.round(mine.pct)}% · avg ${fmtTime(mine.avg_time)}</span></div>` : ""}
+    ${mine ? `<div class="my-rank"><span>Your rank</span><b>#${mine.rank}</b><span>${mine.correct}/${b.total_questions} · ${Math.round(mine.pct)}% · avg ${fmtTime(mine.avg_time)}${mine.anon ? `<br><small class="muted">🙈 Shown as Anonymous</small>` : ""}</span></div>` : ""}
     ${top.length ? `<div class="card list-card">
       <div class="rank-row head"><span class="rk">#</span><span class="who">Student</span><span class="sc">Correct</span><span class="tm">Time</span></div>
       ${top.map(rankRow).join("")}
@@ -951,6 +958,12 @@ async function renderProfile() {
       <p class="hint">One account for every subject. Turn one off to hide it from your home screen and stop its reminders.</p>
     </div>
     <div class="card">
+      <h3 class="card-title">Leaderboard privacy</h3>
+      <label class="subj-row"><span class="anon-ic">🙈</span><span class="t"><b>Hide my name on leaderboards</b><small>Show me as "Anonymous"</small></span>
+        <input type="checkbox" class="switch" id="anonSw" ${me.anon ? "checked" : ""}></label>
+      <p class="hint">Your name and school will show as "Anonymous" to other students. Your teacher can still see your marks.</p>
+    </div>
+    <div class="card">
       <dl class="kv">
         <dt>Email</dt><dd>${esc(me.email)}</dd>
         <dt>NIC</dt><dd>${esc(maskNic(me.nic))}</dd>
@@ -983,6 +996,13 @@ async function renderProfile() {
     me.subjects = next;
     toast(`${SUBJECTS[cb.dataset.subj].name} ${cb.checked ? "on" : "off"}.`);
   });
+  $("#anonSw").onchange = async (e) => {
+    const on = e.target.checked;
+    const { error } = await sb.from("profiles").update({ anon: on }).eq("id", me.id);
+    if (error) { e.target.checked = !on; toast("Couldn't save: " + error.message); return; }
+    me.anon = on;
+    toast(on ? "🙈 You'll show as \"Anonymous\" on leaderboards." : "Your name will show on leaderboards.");
+  };
   bindLangSwitch(() => { toast(`Questions will be shown in ${LANG_NAMES[lang]}.`); renderProfile(); });
   $("#pushToggle")?.addEventListener("click", async (e) => {
     e.target.disabled = true;
