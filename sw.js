@@ -1,10 +1,10 @@
 // Offline support for the app's own files (so it opens instantly).
 // Database requests (Supabase) are never cached — marks and questions are always live.
 // Bump VERSION whenever app code (js/, *.css, index.html) changes so phones pick it up.
-const VERSION = "v19";
+const VERSION = "v20";
 const SHELL = `shell-${VERSION}`;
 const SHELL_FILES = [
-  "./", "index.html", "styles.css", "app.css", "light.css", "js/app.js", "js/ui.js", "js/admin.js", "js/config.js",
+  "./", "index.html", "styles.css", "app.css", "light.css", "js/app.js", "js/ui.js", "js/admin.js", "js/prac.js", "js/config.js",
   "manifest.webmanifest", "icons/icon.svg", "icons/phy.svg", "icons/chem.svg", "icons/phy-192.png", "icons/chem-192.png", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"
 ];
 const CACHEABLE_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com", "cdn.jsdelivr.net"];

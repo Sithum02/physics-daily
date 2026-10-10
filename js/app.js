@@ -4,6 +4,7 @@
 //   #login  #register  #newpass  #complete  #banned
 //   #home (subject picker)  #s/<subj>  #quiz/<subj>/<day>  #review/<subj>/<day>
 //   #ranks/<subj>/<period>  #progress/<subj>  #profile
+//   #prac  #prac/<id>  (Physics practicals: learning quizzes, see prac.js)
 //   #admin…  (admin only, see admin.js)
 // <subj> is "phy" or "chem". Old links without a subject (#quiz/<day> …) mean Physics.
 // All marking, timing and ranking happen in the database (supabase/daily.sql).
@@ -222,6 +223,10 @@ async function route() {
       case "ranks": return isSubject(a) ? await renderRanks(a, b || "today") : await renderRanks(lastSubject(), a || "today");
       case "progress": return await renderProgress(isSubject(a) ? a : lastSubject());
       case "profile": return await renderProfile();
+      case "prac": {
+        const mod = await import("./prac.js");
+        return await mod.renderPractical({ sb, me, app, a, shell, go, setSubject, getLang: () => lang, langSwitch, bindLangSwitch });
+      }
       case "admin": {
         if (!me.is_admin) return go("home");
         const mod = await import("./admin.js");
@@ -492,7 +497,7 @@ async function renderHub() {
   neutralTheme();
   shell("home", `<div class="spinner"></div>`);
   const subs = mySubjects();
-  const [hub, ...statuses] = await Promise.all([rpc("dq_hub"),
+  const [hub, prac, ...statuses] = await Promise.all([rpc("dq_hub"), practicalsSummary(),
     ...(me.is_admin ? SUBJECT_KEYS.map((k) => rpc("dq_admin_status", { p_subject: k }).catch(() => null)) : [])]);
   clockOffset = Date.parse(hub.now) - Date.now();
   const today = hub.today;
@@ -519,7 +524,8 @@ async function renderHub() {
       <a class="subj-top" href="#s/${x.subject}">${subjIcon(S.key)}
         <div><b>${S.name}</b><small>${S.app} · open →</small></div>
         <div class="subj-streak">🔥 ${x.streak}<small>day streak</small></div></a>
-      <div class="subj-status">${status}</div></div>`;
+      <div class="subj-status">${status}</div>
+      ${x.subject === "phy" && prac ? pracStrip(prac) : ""}</div>`;
   };
 
   const shown = hub.subjects.filter((x) => subs.includes(x.subject));
@@ -539,6 +545,25 @@ async function renderHub() {
   $$("[data-start]").forEach((btn) => btn.onclick = () => startQuiz(btn.dataset.start, today, +btn.dataset.n));
 }
 
+// ---------- Practicals (learning quizzes, see prac.js) ----------
+// Summary for the strip / card; never lets a practicals problem break the home screens
+async function practicalsSummary() {
+  try {
+    const mod = await import("./prac.js");
+    return mod.practicalsSummary(await mod.practicalsList(sb));
+  } catch { return null; }
+}
+const FLASK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></svg>`;
+const pracNote = (p) => esc(p.line) + (p.preview ? " · <i>preview</i>" : "");
+function pracStrip(p) {
+  return `<a class="prac-strip" href="#prac"><span class="pi">${FLASK}</span>
+    <span class="tx"><b>Practicals</b><small>${pracNote(p)}</small></span><span class="go">Go to practicals →</span></a>`;
+}
+function pracCard(p) {
+  return `<a class="prac-card" href="#prac"><span class="pi">${FLASK}</span>
+    <span class="tx"><b>Practicals</b><small>${pracNote(p)}</small></span><span class="btn btn-primary btn-sm go">Open</span></a>`;
+}
+
 async function startQuiz(s, day, n) {
   const ok = await confirmBox(`Start today's ${SUBJECTS[s].name} quiz?`,
     `You'll have <b>${n * 2} minutes</b> for ${n} questions. The timer keeps running even if you close the app, and you get <b>one attempt</b>.
@@ -552,9 +577,10 @@ async function startQuiz(s, day, n) {
 async function renderHome(s) {
   setSubject(s);
   shell("home", `${subjectHeader(s, subjectsChip())}<div class="spinner"></div>`);
-  const [home, stats, board, adminStatus] = await Promise.all([rpc("dq_home", { p_subject: s }), rpc("dq_stats", { p_subject: s }),
+  const [home, stats, board, adminStatus, prac] = await Promise.all([rpc("dq_home", { p_subject: s }), rpc("dq_stats", { p_subject: s }),
     rpc("dq_leaderboard", { p_period: "today", p_subject: s }),
-    me.is_admin ? rpc("dq_admin_status", { p_subject: s }).catch(() => null) : null]);
+    me.is_admin ? rpc("dq_admin_status", { p_subject: s }).catch(() => null) : null,
+    s === "phy" ? practicalsSummary() : null]);
   clockOffset = Date.parse(home.now) - Date.now();
   const today = home.today;
   const t = home.days.find((d) => d.day === today);
@@ -589,6 +615,7 @@ async function renderHome(s) {
   shell("home", `
     ${subjectHeader(s, subjectsChip())}
     ${card}
+    ${prac ? pracCard(prac) : ""}
     ${adminBanner(adminStatus)}
     <div class="stats">
       <div class="stat fire"><b>🔥 ${stats.streak}</b><small>Day streak</small></div>
