@@ -136,7 +136,7 @@ function draw(ctx) {
   const opts = perm.map((k) => t.options[k]);
   const correct = perm.indexOf(q.answer);
   const n = run.order.length;
-  const ref = /^Q/.test(q.ref) ? `Worksheet ${q.ref}` : "Handbook";
+  const ref = /^Extra/.test(q.ref) ? "Handbook" : `Worksheet ${q.ref}`;
 
   const optHtml = opts.map((o, k) => {
     let cls = "opt";
