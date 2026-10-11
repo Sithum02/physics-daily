@@ -6,12 +6,42 @@
 // Options are shuffled on every attempt. The score is shown only to the student and is NOT sent anywhere:
 // progress is kept on this phone only (localStorage). Questions come from the pr_quizzes table.
 // ==========================================================
-import { $, $$, esc, fmt, LETTERS } from "./ui.js";
+import { $, $$, esc, fmt, LETTERS, ZOOM_TIP } from "./ui.js";
 
+// [first, last, name, short name (unit grid), icon, colour]
 const UNITS = [
-  [1, 4, "Measurement"], [5, 9, "Mechanics"], [10, 16, "Oscillations and waves"], [17, 22, "Light"],
-  [23, 31, "Thermal physics"], [32, 36, "Electricity"], [37, 39, "Electronics"], [40, 44, "Mechanical properties of matter"]
+  [1, 4, "Measurement", "Measure", "ruler", "#2563eb"], [5, 9, "Mechanics", "Mechanics", "scale", "#4f46e5"],
+  [10, 16, "Oscillations and waves", "Waves", "wave", "#0d9488"], [17, 22, "Light", "Light", "lens", "#d97706"],
+  [23, 31, "Thermal physics", "Thermal", "thermo", "#ea580c"], [32, 36, "Electricity", "Electricity", "bolt", "#7c3aed"],
+  [37, 39, "Electronics", "Electronics", "chip", "#0891b2"], [40, 44, "Mechanical properties of matter", "Matter", "drop", "#db2777"]
 ];
+const ICONS = {
+  ruler: `<rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 8v3M10 8v4M14 8v3M18 8v4"/>`,
+  scale: `<path d="M3 8h18M12 4v16M8 20h8"/><path d="M5.5 8 3 14h5zM18.5 8 16 14h5z"/>`,
+  wave: `<path d="M2 12c2-5 4-5 6 0s4 5 6 0 4-5 6 0"/>`,
+  lens: `<path d="M12 3c2.2 3 2.2 15 0 18-2.2-3-2.2-15 0-18z"/><path d="M2 8h8M2 16h8M14 12l8-4M14 12l8 4"/>`,
+  thermo: `<path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/><path d="M12 9v7"/>`,
+  bolt: `<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>`,
+  chip: `<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>`,
+  drop: `<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>`
+};
+const icon = (k, size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
+// The apparatus diagram shown as each practical's thumbnail (img/prac/<name>.svg)
+const THUMBS = ["p01-calliper", "p02-micrometer", "p03-spherometer", "p04-tube", "p05-apparatus", "p06-setup", "p07-utube", "p08-hare",
+  "p09-tube", "p10-pendulum", "p11-spring", "p12-sonometer", "p12-sonometer", "p14-apparatus", "p14-apparatus", "p16-gaps", "p17-depth",
+  "p18-setup", "p19-pins", "p20-table", "p21-bench", "p22-setup", "p23-quill", "p24-apparatus", "p25-jolly", "p26-apparatus",
+  "p27-apparatus", "p28-apparatus", "p29-apparatus", "p30-apparatus", "p31-searle", "p32-circuit", "p33-bridge", "p34-potentiometer",
+  "p35-circuit", "p36-balance", "p37-circuit", "p38-circuit", "p39-circuit", "p40-apparatus", "p41-apparatus", "p42-slide",
+  "p43-capillary", "p44-jaeger"];
+// A progress ring (frac 0..1) with optional text in the middle
+const ring = (frac, size, stroke, colour, text = "") => {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r, m = size / 2;
+  return `<svg class="pring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+    <circle cx="${m}" cy="${m}" r="${r}" fill="none" stroke="rgba(15,23,42,.08)" stroke-width="${stroke}"/>
+    ${frac > 0 ? `<circle cx="${m}" cy="${m}" r="${r}" fill="none" stroke="${colour}" stroke-width="${stroke}" stroke-linecap="round"
+      stroke-dasharray="${(c * Math.min(frac, 1)).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 ${m} ${m})"/>` : ""}
+    ${text ? `<text x="50%" y="52%" text-anchor="middle" dominant-baseline="middle">${text}</text>` : ""}</svg>`;
+};
 export const TOTAL_PRACTICALS = 44;
 
 let list = null;              // pr_list() result (cached for the session)
@@ -60,28 +90,59 @@ async function renderList(ctx) {
   const { shell, sb, me } = ctx;
   shell("home", `<div class="spinner"></div>`);
   const rows = await practicalsList(sb, true);
-  const byUnit = UNITS.map(([lo, hi, name]) => [name, rows.filter((r) => r.no >= lo && r.no <= hi)]).filter(([, r]) => r.length);
+  const byUnit = UNITS.map(([lo, hi, ...u]) => [u, rows.filter((r) => r.no >= lo && r.no <= hi)]).filter(([, r]) => r.length);
   const hiddenCount = rows.filter((r) => !r.live).length;
+  const totalQs = rows.reduce((n, r) => n + r.count, 0);
+
+  // done = finished at least once; part = a run in progress (shown even if done before)
+  const state = (r) => {
+    const d = savedDone(store.get(runKey(r.id)));
+    if (d > 0) return { k: "part", n: d, of: r.count };
+    const best = store.get(bestKey(r.id));
+    return best ? { k: "done", n: best.score, of: best.total } : { k: "new" };
+  };
+  const isDone = (r) => !!store.get(bestKey(r.id));
+  const doneAll = rows.filter(isDone).length;
 
   const row = (r) => {
-    const best = store.get(bestKey(r.id));
-    const going = store.get(runKey(r.id));
-    const st = savedDone(going) > 0 ? `<span class="st part">${savedDone(going)} / ${r.count}</span>`
-      : best ? `<span class="st done">✓ ${best.score}/${best.total}</span>` : "";
-    return `<a class="prow ${best && !(savedDone(going) > 0) ? "done" : ""}" href="#prac/${r.id}">
-      <span class="no">${num(r.no)}</span>
-      <span class="t"><b>${esc(shortTitle(r.title))}</b><small>${r.count} questions${me.is_admin && !r.live ? " · <i>hidden from students</i>" : ""}</small></span>
-      ${st}<span class="chev">›</span></a>`;
+    const s = state(r);
+    const pill = s.k === "done" ? `<span class="st done">✓ ${s.n}/${s.of}</span>`
+      : s.k === "part" ? `<span class="st part">${s.n}/${s.of}</span>` : `<span class="st new">${r.count} Qs</span>`;
+    const thumb = THUMBS[r.no - 1];
+    return `<a class="prow ${s.k}" href="#prac/${r.id}">
+      <span class="thumb">${thumb ? `<img src="img/prac/${thumb}.svg" alt="" loading="lazy">` : ""}<span class="no">${num(r.no)}</span></span>
+      <span class="t"><b>${esc(shortTitle(r.title))}</b><small>${r.count} questions${me.is_admin && !r.live ? " · <i>hidden from students</i>" : ""}</small>
+        ${s.k === "new" ? "" : `<span class="pbar"><i style="width:${Math.round(100 * s.n / s.of)}%"></i></span>`}</span>
+      ${pill}<span class="chev">›</span></a>`;
+  };
+  const tile = ([, short, ic, colour], rs, i) => {
+    const d = rs.filter(isDone).length;
+    return `<button class="ut" data-unit="${i}" style="color:${colour}"><span class="ur">${ring(d / rs.length, 40, 4, colour)}${icon(ic)}</span>
+      <b>${short}</b><small>${d}/${rs.length}</small></button>`;
+  };
+  const head = ([name, , ic, colour], rs, i) => {
+    const d = rs.filter(isDone).length;
+    return `<h3 class="unit-h" id="unit-${i}"><span class="ui" style="color:${colour}">${icon(ic)}</span><b>${name}</b>
+      <small>${d ? `${d} of ${rs.length} done` : `${rs.length} practical${rs.length > 1 ? "s" : ""}`}</small></h3>`;
   };
 
   shell("home", `
     <div class="qtop plain prac-head"><div class="qtop-row"><a class="back" href="#s/phy" aria-label="Back">←</a>
       <div class="qtop-title"><b>Practicals</b></div></div></div>
     ${me.is_admin && hiddenCount ? `<div class="prac-preview">👁 <b>Preview.</b> ${hiddenCount} practical${hiddenCount > 1 ? "s are" : " is"} hidden from students. Release with <code>node tools/practicals.mjs --live all</code></div>` : ""}
-    <p class="learn-note">📘 Learn at your own pace. No timer and no marks saved. The answer and full method appear as soon as you check each question.</p>
-    ${rows.length ? byUnit.map(([u, rs]) => `<h3 class="unit-h">${u}</h3><div class="card list-card">${rs.map(row).join("")}</div>`).join("")
+    ${rows.length ? `
+    <div class="prac-hero">
+      <div class="lab">YOUR PRACTICALS</div>
+      <div class="hrow"><div><div class="big">${doneAll} <small>of ${rows.length} done</small></div>
+        <div class="meta">${totalQs} questions · learn at your own pace</div></div>
+        ${ring(doneAll / rows.length, 58, 7, "#2563eb", `${Math.round(100 * doneAll / rows.length)}%`)}</div>
+      <div class="ugrid">${byUnit.map(([u, rs], i) => tile(u, rs, i)).join("")}</div>
+    </div>
+    ${byUnit.map(([u, rs], i) => `${head(u, rs, i)}<div class="card list-card">${rs.map(row).join("")}</div>`).join("")}`
       : `<div class="empty">Practicals are coming soon.</div>`}
     ${rows.length && rows.length < TOTAL_PRACTICALS ? `<p class="more-soon">More practicals are being added. <b>Stay tuned!</b></p>` : ""}`);
+  // Unit grid: jump to that unit
+  $$(".ut").forEach((b) => b.addEventListener("click", () => $(`#unit-${b.dataset.unit}`)?.scrollIntoView({ behavior: "smooth", block: "start" })));
 }
 
 // ==========================================================
@@ -182,7 +243,7 @@ function draw(ctx) {
     </div>
     <div class="qcard" lang="${lang}">
       <div class="qmeta"><span class="n">Question ${run.i + 1}</span><span class="tag-ref">${esc(ref)}</span></div>
-      ${q.image ? `<img class="qimg prac-img" src="${esc(q.image)}" alt="Diagram">` : ""}
+      ${q.image ? `<div class="qimg-box"><img class="qimg prac-img" src="${esc(q.image)}" alt="Diagram">${ZOOM_TIP}</div>` : ""}
       <div class="qtext">${fmt(t.q)}</div>
       ${checked ? `<div class="verdict ${ok ? "ok" : "no"}"><span>${ok ? "✓" : "✗"}</span>${ok ? "Correct! Well done." : "Not quite. The correct answer is shown in green."}</div>` : ""}
       <div class="opts">${optHtml}</div>
