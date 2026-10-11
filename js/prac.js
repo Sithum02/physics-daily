@@ -40,16 +40,10 @@ export async function practicalsList(sb, force = false) {
   return list;
 }
 
-// For the strip on the subject picker and the card on Physics home
+// For the strip on the subject picker and the card on Physics home: always the same short line
 export function practicalsSummary(rows) {
   if (!rows?.length) return null;
-  const going = rows.find((r) => savedDone(store.get(runKey(r.id))) > 0);
-  const preview = !rows.some((r) => r.live);
-  return {
-    count: rows.length,
-    preview,
-    line: going ? `Continue: ${shortTitle(going.title)}` : `${rows.length} practical${rows.length > 1 ? "s" : ""} · learn any time`
-  };
+  return { count: rows.length, preview: !rows.some((r) => r.live), line: `${rows.length} in total` };
 }
 
 export async function renderPractical(ctx) {
@@ -81,8 +75,8 @@ async function renderList(ctx) {
   };
 
   shell("home", `
-    <div class="qtop plain"><div class="qtop-row"><a class="back" href="#s/phy" aria-label="Back">←</a>
-      <div class="qtop-title"><b>Practicals</b><small>A/L Physics</small></div></div></div>
+    <div class="qtop plain prac-head"><div class="qtop-row"><a class="back" href="#s/phy" aria-label="Back">←</a>
+      <div class="qtop-title"><b>Practicals</b></div></div></div>
     ${me.is_admin && hiddenCount ? `<div class="prac-preview">👁 <b>Preview.</b> ${hiddenCount} practical${hiddenCount > 1 ? "s are" : " is"} hidden from students. Release with <code>node tools/practicals.mjs --live all</code></div>` : ""}
     <p class="learn-note">📘 Learn at your own pace. No timer and no marks saved. The answer and full method appear as soon as you check each question.</p>
     ${rows.length ? byUnit.map(([u, rs]) => `<h3 class="unit-h">${u}</h3><div class="card list-card">${rs.map(row).join("")}</div>`).join("")
