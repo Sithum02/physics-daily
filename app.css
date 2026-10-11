@@ -291,5 +291,4 @@ body:has(.tabbar) .toast, body:has(.qbar) .toast { bottom: calc(var(--tabbar-h) 
 .prac-run .qn.ok { background: #dcfce7; border-color: #86efac; color: #15803d; }
 .prac-run .qn.bad { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
 .prac-head .qtop-title b { font-size: 24px; line-height: 1.2; }
-.left-line { display: block; white-space: nowrap; }
 .nowrap { white-space: nowrap; }

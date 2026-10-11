@@ -517,7 +517,7 @@ async function renderHub() {
       status = `<div><b><span class="live-dot"></span>${esc(quizNo)} in progress</b><small>Timer: <span class="nowrap"><b data-count="${Date.parse(x.deadline)}"></b> left</span></small></div>
         <a class="btn btn-${x.subject}" href="#quiz/${x.subject}/${today}">Continue</a>`;
     } else {
-      status = `<div><b>${esc(quizNo)} is open</b><small>⏳ Closes at midnight<span class="left-line"><b data-count="${closes}"></b> left</span></small></div>
+      status = `<div><b>${esc(quizNo)} is open</b><small>Closes in <span class="nowrap"><b data-count="${closes}"></b></span></small></div>
         <button class="btn btn-${x.subject}" data-start="${x.subject}" data-n="${x.count}">Start →</button>`;
     }
     return `<div class="subj ${x.subject}">
