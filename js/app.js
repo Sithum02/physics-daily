@@ -14,7 +14,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, WHATSAPP_NUMBER, WHATSAPP_DISPLAY, VAP
 import {
   $, $$, esc, fmt, fmtTime, niceDay, addDays, pctClass, toast, sheet, confirmBox,
   lineChart, barList, LETTERS, DISTRICTS, normalizeNic, normalizePhone, maskNic,
-  SUBJECTS, SUBJECT_KEYS, isSubject, subjIcon, ZOOM_TIP } from "./ui.js";
+  SUBJECTS, SUBJECT_KEYS, isSubject, subjIcon } from "./ui.js";
 import { lockZoom } from "./zoom.js";
 
 const app = $("#app");
@@ -731,7 +731,7 @@ function drawQuiz() {
       <div class="qcard" lang="${t.fallback ? "en" : lang}">
         <div class="qmeta"><span class="n">Question ${z.i + 1}</span>${q.topic ? `<span class="topic">${esc(q.topic)}</span>` : ""}</div>
         ${t.fallback ? fallbackNote() : ""}
-        ${q.image_url ? `<div class="qimg-box"><img class="qimg" src="${esc(q.image_url)}" alt="Diagram">${ZOOM_TIP}</div>` : ""}
+        ${q.image_url ? `<img class="qimg" src="${esc(q.image_url)}" alt="Diagram">` : ""}
         <div class="qtext">${fmt(t.body)}</div>
         <div class="opts">${t.options.map((o, k) => `
           <button class="opt ${mine === k ? "picked" : ""}" data-k="${k}"><span class="l">${LETTERS[k]}</span><span>${fmt(o)}</span></button>`).join("")}</div>
@@ -851,7 +851,7 @@ async function renderReview(s, day) {
           <div class="qmeta"><span class="n">Q${i + 1}</span>
             ${s === "right" ? `<span class="tag ok">✓ Correct</span>` : s === "wrong" ? `<span class="tag no">✗ Wrong</span>` : s === "skip" ? `<span class="tag">Skipped</span>` : q.topic ? `<span class="topic">${esc(q.topic)}</span>` : ""}</div>
           ${t.fallback ? fallbackNote() : ""}
-          ${q.image_url ? `<div class="qimg-box"><img class="qimg" src="${esc(q.image_url)}" alt="Diagram">${ZOOM_TIP}</div>` : ""}
+          ${q.image_url ? `<img class="qimg" src="${esc(q.image_url)}" alt="Diagram">` : ""}
           <div class="qtext sm">${fmt(t.body)}</div>
           <div class="opts">${t.options.map((o, k) => `
             <div class="opt ${k === q.correct ? "right" : k === q.yours ? "wrong" : "dim"}"><span class="l">${LETTERS[k]}</span><span>${fmt(o)}</span></div>`).join("")}</div>

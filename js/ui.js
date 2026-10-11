@@ -208,6 +208,3 @@ export function barList(rows) {
     </div>`;
   }).join("")}</div>`;
 }
-
-// Corner badge on question diagrams: tap the diagram to open it full screen (see zoom.js)
-export const ZOOM_TIP = `<span class="zoom-tip" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M11 8v6M8 11h6"/></svg></span>`;

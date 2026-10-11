@@ -327,10 +327,7 @@ body:has(.tabbar) .toast, body:has(.qbar) .toast { bottom: calc(var(--tabbar-h) 
 .nowrap { white-space: nowrap; }
 /* Question diagrams: tap to open full screen (js/zoom.js) */
 html { touch-action: manipulation; }
-.qimg-box { position: relative; margin-bottom: 16px; }
-.qimg-box .qimg { margin-bottom: 0; display: block; cursor: zoom-in; }
-.zoom-tip { position: absolute; right: 8px; bottom: 8px; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; pointer-events: none;
-  background: rgba(255, 255, 255, .92); color: var(--muted); box-shadow: 0 0 0 1px var(--line), 0 2px 6px rgba(15, 23, 42, .12); }
+.qimg { cursor: zoom-in; }
 body.zv-open { overflow: hidden; }
 .zv { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; background: rgba(10, 14, 26, .94); touch-action: none;
   opacity: 0; transition: opacity .15s ease; user-select: none; -webkit-user-select: none; }

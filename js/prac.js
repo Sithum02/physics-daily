@@ -6,7 +6,7 @@
 // Options are shuffled on every attempt. The score is shown only to the student and is NOT sent anywhere:
 // progress is kept on this phone only (localStorage). Questions come from the pr_quizzes table.
 // ==========================================================
-import { $, $$, esc, fmt, LETTERS, ZOOM_TIP } from "./ui.js";
+import { $, $$, esc, fmt, LETTERS } from "./ui.js";
 
 // [first, last, name, short name (unit grid), icon, colour]
 const UNITS = [
@@ -243,7 +243,7 @@ function draw(ctx) {
     </div>
     <div class="qcard" lang="${lang}">
       <div class="qmeta"><span class="n">Question ${run.i + 1}</span><span class="tag-ref">${esc(ref)}</span></div>
-      ${q.image ? `<div class="qimg-box"><img class="qimg prac-img" src="${esc(q.image)}" alt="Diagram">${ZOOM_TIP}</div>` : ""}
+      ${q.image ? `<img class="qimg prac-img" src="${esc(q.image)}" alt="Diagram">` : ""}
       <div class="qtext">${fmt(t.q)}</div>
       ${checked ? `<div class="verdict ${ok ? "ok" : "no"}"><span>${ok ? "✓" : "✗"}</span>${ok ? "Correct! Well done." : "Not quite. The correct answer is shown in green."}</div>` : ""}
       <div class="opts">${optHtml}</div>
