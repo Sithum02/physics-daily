@@ -287,4 +287,6 @@ body:has(.tabbar) .toast, body:has(.qbar) .toast { bottom: calc(var(--tabbar-h) 
 .prac-run .opt.dim { opacity: .75; }
 .prac-finish .private { text-align: center; font-size: 13px; color: var(--muted); margin: -4px 0 4px; }
 .prac-finish .fin-btns { display: grid; gap: 10px; margin-top: 18px; }
-.prac-run .qbar .btn:first-child { flex: 1; }
+.prac-run .qbar .btn:first-child { flex: 0 0 64px; }
+.prac-run .qn.ok { background: #dcfce7; border-color: #86efac; color: #15803d; }
+.prac-run .qn.bad { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }

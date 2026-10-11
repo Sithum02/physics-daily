@@ -25,7 +25,9 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
 };
 const bestKey = (id) => `prac:best:${id}`;   // {score, total} of the best full run
-const runKey = (id) => `prac:run:${id}`;     // a full run in progress: {i, right, wrong}
+const runKey = (id) => `prac:run:${id}`;     // a full run in progress: {i, ans, done}
+// how many questions of a saved run are answered (old saves only had i = questions done)
+const savedDone = (sv) => sv ? (sv.done ?? sv.i ?? 0) : 0;
 
 export const shortTitle = (t) => { const s = t.en.replace(/^Usage of the /i, ""); return s[0].toUpperCase() + s.slice(1); };
 const num = (n) => String(n).padStart(2, "0");
@@ -41,7 +43,7 @@ export async function practicalsList(sb, force = false) {
 // For the strip on the subject picker and the card on Physics home
 export function practicalsSummary(rows) {
   if (!rows?.length) return null;
-  const going = rows.find((r) => store.get(runKey(r.id))?.i > 0);
+  const going = rows.find((r) => savedDone(store.get(runKey(r.id))) > 0);
   const preview = !rows.some((r) => r.live);
   return {
     count: rows.length,
@@ -70,9 +72,9 @@ async function renderList(ctx) {
   const row = (r) => {
     const best = store.get(bestKey(r.id));
     const going = store.get(runKey(r.id));
-    const st = going?.i > 0 ? `<span class="st part">${going.i} / ${r.count}</span>`
+    const st = savedDone(going) > 0 ? `<span class="st part">${savedDone(going)} / ${r.count}</span>`
       : best ? `<span class="st done">✓ ${best.score}/${best.total}</span>` : "";
-    return `<a class="prow ${best && !(going?.i > 0) ? "done" : ""}" href="#prac/${r.id}">
+    return `<a class="prow ${best && !(savedDone(going) > 0) ? "done" : ""}" href="#prac/${r.id}">
       <span class="no">${num(r.no)}</span>
       <span class="t"><b>${esc(shortTitle(r.title))}</b><small>${r.count} questions${me.is_admin && !r.live ? " · <i>hidden from students</i>" : ""}</small></span>
       ${st}<span class="chev">›</span></a>`;
@@ -105,30 +107,42 @@ async function renderRun(ctx, id) {
   const P = quizzes[id];
   const saved = store.get(runKey(id));
   const all = P.questions.map((_, k) => k);
-  if (saved && saved.i > 0 && saved.i < all.length) startRun(P, all, true, saved);
+  const done = savedDone(saved);
+  if (saved && done > 0 && done < all.length) startRun(P, all, true, saved);
   else startRun(P, all, true);
   draw(ctx);
 }
 
 // order: indices of the questions to ask; full: a whole run (saved for "continue"), not a retry of wrong ones
+// ans[p]: the ORIGINAL option index chosen for position p (so it survives reshuffling), -1 = answered wrongly
+// in an old save (pick unknown), null = not answered yet. Answered questions can be revisited but not changed.
 function startRun(P, order, full, saved = null) {
+  let ans = order.map(() => null);
+  if (saved?.ans?.length === order.length) ans = saved.ans;
+  else if (saved?.i > 0) {                   // old save {i, right, wrong}: the first i questions were answered
+    for (let p = 0; p < Math.min(saved.i, order.length); p++) ans[p] = (saved.wrong || []).includes(order[p]) ? -1 : P.questions[order[p]].answer;
+  }
+  const first = ans.findIndex((x) => x == null);
   run = {
-    P, order, full,
-    i: saved?.i || 0,
-    right: saved?.right || 0,
-    wrong: saved?.wrong || [],               // question indices answered wrongly in this run
+    P, order, full, ans,
+    i: saved ? (first < 0 ? order.length - 1 : first) : 0,
     perm: order.map(() => shuffle(5)),       // new option order on every attempt
-    pick: null, checked: false
+    pick: null, finished: false
   };
 }
 
+const isRight = (p) => run.ans[p] === run.P.questions[run.order[p]].answer;
+const doneCount = () => run.ans.filter((x) => x != null).length;
+const rightCount = () => run.ans.filter((_, p) => isRight(p)).length;
+const wrongList = () => run.order.filter((qi, p) => run.ans[p] != null && !isRight(p));
+
 function saveRun() {
   if (!run.full) return;
-  store.set(runKey(run.P.id), { i: run.i, right: run.right, wrong: run.wrong });
+  store.set(runKey(run.P.id), { i: run.i, ans: run.ans, done: doneCount() });
 }
 
 function draw(ctx) {
-  if (run.i >= run.order.length) return drawFinish(ctx);
+  if (run.finished) return drawFinish(ctx);
   const { app } = ctx;
   const lang = ctx.getLang();
   const P = run.P, qi = run.order[run.i], q = P.questions[qi], perm = run.perm[run.i];
@@ -136,58 +150,77 @@ function draw(ctx) {
   const opts = perm.map((k) => t.options[k]);
   const correct = perm.indexOf(q.answer);
   const n = run.order.length;
+  const mine = run.ans[run.i];
+  const checked = mine != null;
+  const shown = checked ? perm.indexOf(mine) : run.pick;      // -1 when an old save did not keep the pick
+  const done = doneCount();
   const ref = /^Extra/.test(q.ref) ? "Handbook" : `Worksheet ${q.ref}`;
 
   const optHtml = opts.map((o, k) => {
     let cls = "opt";
-    if (!run.checked && run.pick === k) cls += " picked";
-    if (run.checked) cls += k === correct ? " right" : k === run.pick ? " wrong" : " dim";
-    const mark = run.checked && k === correct ? `<span class="mk">✓</span>` : run.checked && k === run.pick ? `<span class="mk">✗</span>` : "";
-    return `<button class="${cls}" data-k="${k}" ${run.checked ? "disabled" : ""}><span class="l">${LETTERS[k]}</span><span>${fmt(o)}</span>${mark}</button>`;
+    if (!checked && run.pick === k) cls += " picked";
+    if (checked) cls += k === correct ? " right" : k === shown ? " wrong" : " dim";
+    const mark = checked && k === correct ? `<span class="mk">✓</span>` : checked && k === shown ? `<span class="mk">✗</span>` : "";
+    return `<button class="${cls}" data-k="${k}" ${checked ? "disabled" : ""}><span class="l">${LETTERS[k]}</span><span>${fmt(o)}</span>${mark}</button>`;
   }).join("");
-  const ok = run.checked && run.pick === correct;
+  const ok = checked && isRight(run.i);
+  const tiles = run.order.map((_, p) => {
+    const st = run.ans[p] == null ? "" : isRight(p) ? "ok" : "bad";
+    return `<button class="qn ${st} ${p === run.i ? "cur" : ""}" data-go="${p}" aria-label="Question ${p + 1}">${p + 1}</button>`;
+  }).join("");
+  const firstOpen = run.ans.findIndex((x) => x == null);
+  const last = run.i === n - 1;
+  const main = !checked
+    ? `<button class="btn btn-primary" id="check" ${run.pick == null ? "disabled" : ""}>Check answer</button>`
+    : !last ? `<button class="btn btn-primary" id="next">Next →</button>`
+    : firstOpen < 0 ? `<button class="btn btn-primary" id="finish">See my score</button>`
+    : `<button class="btn btn-primary" id="gofirst">Go to question ${firstOpen + 1} →</button>`;
 
   app.innerHTML = `<div class="wrap quiz-wrap prac-run">
     <div class="qtop">
       <div class="qtop-row">
         <a class="back" href="#prac" aria-label="Back to practicals">✕</a>
-        <div class="qtop-title"><b>${num(P.no)} · ${esc(shortTitle(P.title))}</b><small>${run.full ? "" : "Retry · "}Question ${run.i + 1} of ${n}</small></div>
+        <div class="qtop-title"><b>${num(P.no)} · ${esc(shortTitle(P.title))}</b><small>${run.full ? "" : "Retry · "}${done} of ${n} answered</small></div>
         ${ctx.langSwitch()}
       </div>
-      <div class="lq-bar"><i style="width:${Math.round(((run.i + (run.checked ? 1 : 0)) / n) * 100)}%"></i></div>
+      <div class="lq-bar"><i style="width:${Math.round((done / n) * 100)}%"></i></div>
+      <div class="qnums">${tiles}</div>
     </div>
     <div class="qcard" lang="${lang}">
       <div class="qmeta"><span class="n">Question ${run.i + 1}</span><span class="tag-ref">${esc(ref)}</span></div>
       ${q.image ? `<img class="qimg prac-img" src="${esc(q.image)}" alt="Diagram">` : ""}
       <div class="qtext">${fmt(t.q)}</div>
-      ${run.checked ? `<div class="verdict ${ok ? "ok" : "no"}"><span>${ok ? "✓" : "✗"}</span>${ok ? "Correct! Well done." : "Not quite. The correct answer is shown in green."}</div>` : ""}
+      ${checked ? `<div class="verdict ${ok ? "ok" : "no"}"><span>${ok ? "✓" : "✗"}</span>${ok ? "Correct! Well done." : "Not quite. The correct answer is shown in green."}</div>` : ""}
       <div class="opts">${optHtml}</div>
-      ${run.checked ? `<div class="method"><b>Method:</b> ${fmt(t.explain)}</div>` : ""}
+      ${checked ? `<div class="method"><b>Method:</b> ${fmt(t.explain)}</div>` : ""}
     </div>
-    <div class="qbar">${run.checked
-      ? `<button class="btn btn-primary btn-block" id="next">${run.i + 1 < n ? "Next question →" : "See my score"}</button>`
-      : `<button class="btn btn-primary btn-block" id="check" ${run.pick == null ? "disabled" : ""}>Check answer</button>`}</div>
+    <div class="qbar">
+      <button class="btn btn-ghost" id="prev" ${run.i === 0 ? "disabled" : ""} aria-label="Previous question">←</button>
+      ${main}
+    </div>
   </div>`;
 
-  $$(".opt").forEach((b) => b.onclick = () => { if (run.checked) return; run.pick = +b.dataset.k; try { navigator.vibrate?.(10); } catch { /* ignore */ } draw(ctx); });
+  const goTo = (p) => { run.i = p; run.pick = null; saveRun(); draw(ctx); window.scrollTo(0, 0); };
+  $(".qn.cur")?.scrollIntoView({ block: "nearest", inline: "center" });
+  $$(".opt").forEach((b) => b.onclick = () => { if (checked) return; run.pick = +b.dataset.k; try { navigator.vibrate?.(10); } catch { /* ignore */ } draw(ctx); });
+  $$("[data-go]").forEach((b) => b.onclick = () => goTo(+b.dataset.go));
+  $("#prev").onclick = () => { if (run.i > 0) goTo(run.i - 1); };
   $("#check")?.addEventListener("click", () => {
-    run.checked = true;
-    if (run.pick === correct) run.right++; else run.wrong.push(qi);
+    run.ans[run.i] = perm[run.pick];
+    run.pick = null;
+    saveRun();
     draw(ctx);
     $(".verdict")?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
-  $("#next")?.addEventListener("click", () => {
-    run.i++; run.pick = null; run.checked = false;
-    saveRun();
-    draw(ctx);
-    window.scrollTo(0, 0);
-  });
+  $("#next")?.addEventListener("click", () => goTo(run.i + 1));
+  $("#gofirst")?.addEventListener("click", () => goTo(firstOpen));
+  $("#finish")?.addEventListener("click", () => { run.finished = true; draw(ctx); window.scrollTo(0, 0); });
   ctx.bindLangSwitch(() => draw(ctx));
 }
 
 function drawFinish(ctx) {
   const { app } = ctx;
-  const P = run.P, n = run.order.length, score = run.right;
+  const P = run.P, n = run.order.length, score = rightCount();
   const pct = Math.round((score / n) * 100);
   if (run.full) {
     store.del(runKey(P.id));
@@ -197,7 +230,7 @@ function drawFinish(ctx) {
   const color = pct >= 75 ? "#16a34a" : pct >= 50 ? "#f59e0b" : "#dc2626";
   const C = 326.7;
   const next = (list || []).find((r) => r.no > P.no);
-  const wrong = run.wrong.slice();
+  const wrong = wrongList();
   app.innerHTML = `<div class="wrap prac-finish">
     <div class="qtop plain"><div class="qtop-row"><a class="back" href="#prac" aria-label="Back">←</a>
       <div class="qtop-title"><b>${num(P.no)} · ${esc(shortTitle(P.title))}</b><small>${run.full ? "Finished" : "Retry finished"}</small></div></div></div>
