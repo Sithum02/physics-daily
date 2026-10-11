@@ -514,10 +514,10 @@ async function renderHub() {
       status = `<div><b>${esc(quizNo)} · Done ✓ ${x.score}/${x.total}</b><small>Rank #${x.rank} of ${x.participants} · answers open</small></div>
         <a class="btn btn-ghost" href="#review/${x.subject}/${today}">Review</a>`;
     } else if (x.started_at && Date.parse(x.deadline) > serverNow()) {
-      status = `<div><b><span class="live-dot"></span>${esc(quizNo)} in progress</b><small>Timer: <b data-count="${Date.parse(x.deadline)}"></b> left</small></div>
+      status = `<div><b><span class="live-dot"></span>${esc(quizNo)} in progress</b><small>Timer: <span class="nowrap"><b data-count="${Date.parse(x.deadline)}"></b> left</span></small></div>
         <a class="btn btn-${x.subject}" href="#quiz/${x.subject}/${today}">Continue</a>`;
     } else {
-      status = `<div><b>${esc(quizNo)} is open</b><small>⏳ Closes at midnight · <b data-count="${closes}"></b> left</small></div>
+      status = `<div><b>${esc(quizNo)} is open</b><small>⏳ Closes at midnight<span class="left-line"><b data-count="${closes}"></b> left</span></small></div>
         <button class="btn btn-${x.subject}" data-start="${x.subject}" data-n="${x.count}">Start →</button>`;
     }
     return `<div class="subj ${x.subject}">
@@ -607,7 +607,7 @@ async function renderHome(s) {
     card = `<div class="hero"><span class="label">Today's quiz · ${esc(niceDay(today))}</span>
       <h1>${esc(t.title || "Daily MCQs")}</h1>
       <p>${t.count} questions · ${t.count * 2} minutes${t.topics?.length ? " · " + esc(t.topics.slice(0, 3).join(", ")) : ""}</p>
-      <p class="closes">⏳ Closes at midnight · <b data-count="${closes}"></b> left</p>
+      <p class="closes">⏳ Closes at midnight · <span class="nowrap"><b data-count="${closes}"></b> left</span></p>
       <div class="row"><span class="muted">One attempt only</span><button class="btn btn-primary" id="startBtn">Start quiz →</button></div></div>`;
   }
 
